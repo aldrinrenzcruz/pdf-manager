@@ -1215,7 +1215,6 @@ async function openPreviewModal(pageId) {
 
   previewModal.classList.remove('hidden'); // show first so we can measure
   updateNavigationButtons();
-  previewZoom = 1; // each page opens fitted to the screen
   await renderPreviewPage(page, { resetView: true });
 }
 
@@ -1223,7 +1222,6 @@ function closePreviewModal() {
   previewRenderToken++; // cancel any in-flight render
   previewModal.classList.add('hidden');
   currentPreviewPageId = null;
-  previewZoom = 1;
   panning = null;
   modalCanvas.classList.remove('panning', 'pannable');
   modalCanvas.innerHTML = '';
