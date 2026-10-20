@@ -122,6 +122,7 @@ const selectedPagesSpan = document.getElementById('selectedPages');
 // Modal elements
 const previewModal = document.getElementById('previewModal');
 const closeModal = document.getElementById('closeModal');
+const previewToolbar = previewModal.querySelector('.preview-toolbar');
 const prevPage = document.getElementById('prevPage');
 const nextPage = document.getElementById('nextPage');
 const modalPageTitle = document.getElementById('modalPageTitle');
@@ -175,9 +176,11 @@ prevPage.addEventListener('click', navigateToPrevPage);
 nextPage.addEventListener('click', navigateToNextPage);
 modalRotateBtn.addEventListener('click', rotatePreviewPage);
 
-// Click on the dark area (not the page) closes the overlay (ignored right after a pan drag)
+// Click on the dark area (not the page, not the header zone) closes the overlay
 modalCanvas.addEventListener('click', (e) => {
-  if (e.target === modalCanvas && !suppressClick) closePreviewModal();
+  if (e.target !== modalCanvas || suppressClick) return;
+  if (e.clientY < previewToolbar.getBoundingClientRect().bottom) return; // header zone: ignore
+  closePreviewModal();
 });
 
 // Re-fit the page on window resize
