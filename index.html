@@ -82,6 +82,17 @@
               <label class="block text-sm font-medium text-gray-700 mb-2">Output Filename</label>
               <input type="text" id="mergeFilename" value="merged-document"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <div class="mt-2 space-y-1.5">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                  <input type="radio" name="mergeNameSource" value="first-page" class="name-source-radio w-3.5 h-3.5 text-blue-600" checked>
+                  <span>Use 1st page title as name</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                  <input type="radio" name="mergeNameSource" value="selected-file" class="name-source-radio w-3.5 h-3.5 text-blue-600">
+                  <span>Use selected file's title <span class="text-gray-400">(first selected if several)</span></span>
+                </label>
+                <p class="name-source-hint hidden text-xs text-amber-600"></p>
+              </div>
             </div>
 
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -111,6 +122,17 @@
               <label class="block text-sm font-medium text-gray-700 mb-2">Output Filename</label>
               <input type="text" id="extractFilename" value="extracted-pages"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <div class="mt-2 space-y-1.5">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                  <input type="radio" name="extractNameSource" value="first-page" class="name-source-radio w-3.5 h-3.5 text-blue-600" checked>
+                  <span>Use 1st page title as name</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                  <input type="radio" name="extractNameSource" value="selected-file" class="name-source-radio w-3.5 h-3.5 text-blue-600">
+                  <span>Use selected file's title <span class="text-gray-400">(first selected if several)</span></span>
+                </label>
+                <p class="name-source-hint hidden text-xs text-amber-600"></p>
+              </div>
             </div>
 
             <div>
@@ -150,41 +172,36 @@
     </aside>
   </div>
 
-  <!-- Preview Modal -->
-  <div id="previewModal" class="fixed inset-0 bg-black bg-opacity-75 z-50 hidden flex items-center justify-center p-4">
-    <div class="relative max-w-6xl max-h-full">
-      <!-- Close button -->
-      <button id="closeModal" class="absolute -top-12 right-0 text-white hover:text-gray-300 text-4xl font-bold">
-        <i class="bi bi-x-circle-fill"></i>
-      </button>
-
-      <!-- Navigation buttons -->
-      <button id="prevPage" class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 text-white hover:text-gray-300 text-4xl">
-        <i class="bi bi-chevron-left"></i>
-      </button>
-      <button id="nextPage" class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 text-white hover:text-gray-300 text-4xl">
-        <i class="bi bi-chevron-right"></i>
-      </button>
-
-      <!-- Preview container -->
-      <div class="bg-white rounded-lg shadow-2xl overflow-hidden">
-        <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h3 id="modalPageTitle" class="text-lg font-semibold text-gray-900">Page 1</h3>
-            <p id="modalFileName" class="text-sm text-gray-600">filename.pdf</p>
-          </div>
-          <div class="flex gap-2">
-            <button id="modalRotateBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-              <i class="bi bi-arrow-clockwise"></i>
-              Rotate
-            </button>
-          </div>
-        </div>
-        <div id="modalCanvas" class="p-4 bg-gray-100 flex items-center justify-center" style="max-height: calc(100vh - 200px); overflow: auto;">
-          <!-- Canvas will be inserted here -->
-        </div>
+  <!-- Preview Overlay (full screen) -->
+  <div id="previewModal" class="hidden">
+    <div class="preview-toolbar">
+      <div class="min-w-0">
+        <h3 id="modalPageTitle" class="text-base font-semibold truncate">Page 1</h3>
+        <p id="modalFileName" class="text-xs text-gray-400 truncate">filename.pdf</p>
+      </div>
+      <div class="flex items-center gap-1">
+        <button id="zoomOutBtn" class="preview-btn" title="Zoom out (-)"><i class="bi bi-zoom-out"></i></button>
+        <button id="zoomLevel" class="preview-btn zoom-level" title="Fit to screen (0)">100%</button>
+        <button id="zoomInBtn" class="preview-btn" title="Zoom in (+)"><i class="bi bi-zoom-in"></i></button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="modalRotateBtn" class="preview-btn" title="Rotate">
+          <i class="bi bi-arrow-clockwise"></i> Rotate
+        </button>
+        <button id="closeModal" class="preview-btn preview-close" title="Close (Esc)">
+          <i class="bi bi-x-lg"></i> Close
+        </button>
       </div>
     </div>
+
+    <div id="modalCanvas"><!-- canvas inserted here --></div>
+
+    <button id="prevPage" class="preview-nav preview-nav-prev" title="Previous (←)">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+    <button id="nextPage" class="preview-nav preview-nav-next" title="Next (→)">
+      <i class="bi bi-chevron-right"></i>
+    </button>
   </div>
 
   <script src="./public/js/main.js"></script>

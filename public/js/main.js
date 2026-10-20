@@ -28,6 +28,7 @@ class PDFPageManager {
     this.pages = [];
     this.nextId = 1;
     this.originalFiles = [];
+    this.suggestedNames = {}; // fileIndex -> suggested filename (from content)
   }
 
   addPage(pageData) {
@@ -88,6 +89,7 @@ class PDFPageManager {
   clear() {
     this.pages = [];
     this.originalFiles = [];
+    this.suggestedNames = {};
     this.nextId = 1;
   }
 }
@@ -126,9 +128,24 @@ const modalPageTitle = document.getElementById('modalPageTitle');
 const modalFileName = document.getElementById('modalFileName');
 const modalCanvas = document.getElementById('modalCanvas');
 const modalRotateBtn = document.getElementById('modalRotateBtn');
+const zoomInBtn = document.getElementById('zoomInBtn');
+const zoomOutBtn = document.getElementById('zoomOutBtn');
+const zoomLevel = document.getElementById('zoomLevel');
 
 // Modal state
 let currentPreviewPageId = null;
+let previewRenderToken = 0;
+
+// Zoom state
+const MIN_ZOOM = 0.5;   // relative to "fit"
+const MAX_ZOOM = 6;
+const ZOOM_STEP = 1.25;
+const MAX_CANVAS_PIXELS = 16000000; // browsers fail on very large canvases
+let previewZoom = 1;    // 1 = fit to screen
+
+// Pan state
+let panning = null;
+let suppressClick = false;
 
 // Event Listeners
 uploadBtn.addEventListener('click', () => fileInput.click());
@@ -139,6 +156,18 @@ mergeTab.addEventListener('click', () => switchTab('merge'));
 extractTab.addEventListener('click', () => switchTab('extract'));
 mergeBtn.addEventListener('click', handleMerge);
 extractBtn.addEventListener('click', handleExtract);
+// Filename source radios (kept in sync between the Merge and Extract tabs)
+document.querySelectorAll('.name-source-radio').forEach(radio => {
+  radio.addEventListener('click', () => {
+    document.querySelectorAll(`.name-source-radio[value="${radio.value}"]`).forEach(r => (r.checked = true));
+    applyNameFromSource({ explicit: true });
+  });
+});
+
+// Once the user types a name themselves, automatic updates stop overwriting it
+[mergeFilename, extractFilename].forEach(input => {
+  input.addEventListener('input', () => { userEditedName = true; });
+});
 
 // Modal event listeners
 closeModal.addEventListener('click', closePreviewModal);
@@ -146,26 +175,90 @@ prevPage.addEventListener('click', navigateToPrevPage);
 nextPage.addEventListener('click', navigateToNextPage);
 modalRotateBtn.addEventListener('click', rotatePreviewPage);
 
-// Close modal on outside click
-previewModal.addEventListener('click', (e) => {
-  if (e.target === previewModal) {
+// Click on the dark area (not the page) closes the overlay (ignored right after a pan drag)
+modalCanvas.addEventListener('click', (e) => {
+  if (e.target === modalCanvas && !suppressClick) closePreviewModal();
+});
+
+// Re-fit the page on window resize
+let resizeTimer;
+window.addEventListener('resize', () => {
+  if (!currentPreviewPageId) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const page = pageManager.getPage(currentPreviewPageId);
+    if (page) renderPreviewPage(page);
+  }, 150);
+});
+
+// Keyboard: close, navigate, zoom
+document.addEventListener('keydown', (e) => {
+  if (previewModal.classList.contains('hidden')) return;
+
+  if (e.key === 'Escape') {
     closePreviewModal();
+  } else if (e.key === 'ArrowLeft') {
+    navigateToPrevPage();
+  } else if (e.key === 'ArrowRight') {
+    navigateToNextPage();
+  } else if (e.key === '+' || e.key === '=') {
+    setPreviewZoom(previewZoom * ZOOM_STEP);
+  } else if (e.key === '-') {
+    setPreviewZoom(previewZoom / ZOOM_STEP);
+  } else if (e.key === '0') {
+    setPreviewZoom(1);
   }
 });
 
-// Close modal on ESC key
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !previewModal.classList.contains('hidden')) {
-    closePreviewModal();
+// Zoom controls
+zoomInBtn.addEventListener('click', () => setPreviewZoom(previewZoom * ZOOM_STEP));
+zoomOutBtn.addEventListener('click', () => setPreviewZoom(previewZoom / ZOOM_STEP));
+zoomLevel.addEventListener('click', () => setPreviewZoom(1));
+
+// Ctrl/Cmd + wheel (also trackpad pinch). Debounced so we don't re-render on every tick.
+let pendingZoom = null;
+let wheelTimer;
+previewModal.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault(); // stop the browser's own page zoom
+  pendingZoom = (pendingZoom ?? previewZoom) * Math.exp(-e.deltaY * 0.01);
+  clearTimeout(wheelTimer);
+  wheelTimer = setTimeout(() => {
+    setPreviewZoom(pendingZoom);
+    pendingZoom = null;
+  }, 80);
+}, { passive: false });
+
+// Double-click the page to toggle between fit and 250%
+modalCanvas.addEventListener('dblclick', (e) => {
+  if (e.target.tagName === 'CANVAS') setPreviewZoom(previewZoom > 1.01 ? 1 : 2.5);
+});
+
+// Drag to pan when the page is larger than the viewport
+modalCanvas.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (modalCanvas.scrollWidth <= modalCanvas.clientWidth && modalCanvas.scrollHeight <= modalCanvas.clientHeight) return;
+  panning = { x: e.clientX, y: e.clientY, left: modalCanvas.scrollLeft, top: modalCanvas.scrollTop, moved: false };
+  modalCanvas.classList.add('panning');
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!panning) return;
+  const dx = e.clientX - panning.x;
+  const dy = e.clientY - panning.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) panning.moved = true;
+  modalCanvas.scrollLeft = panning.left - dx;
+  modalCanvas.scrollTop = panning.top - dy;
+});
+
+window.addEventListener('mouseup', () => {
+  if (!panning) return;
+  if (panning.moved) { // don't let the drag count as a "click outside" close
+    suppressClick = true;
+    setTimeout(() => (suppressClick = false), 0);
   }
-  // Navigate with arrow keys
-  if (!previewModal.classList.contains('hidden')) {
-    if (e.key === 'ArrowLeft') {
-      navigateToPrevPage();
-    } else if (e.key === 'ArrowRight') {
-      navigateToNextPage();
-    }
-  }
+  panning = null;
+  modalCanvas.classList.remove('panning');
 });
 
 // Drag and drop for upload zone
@@ -192,6 +285,296 @@ function handleFileSelect(e) {
   fileInput.value = ''; // Reset input
 }
 
+// ==================== AUTO-NAMING FROM CONTENT ====================
+
+let userEditedName = false;        // becomes true once the user types in a filename box
+let nameApplyToken = 0;            // guards against out-of-order async results
+const pageTitleCache = new Map();  // page id -> Promise<string|null>
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_RE = MONTHS.join('|');
+
+// Titles that say what a document is but not which one ("Invoice", "Report", ...)
+const GENERIC_TITLE_RE = /^(tax invoice|invoice|receipt|statement|bill|quotation|quote|purchase order|order confirmation|report|certificate|contract|agreement|resume|curriculum vitae|cv|letter|memo|minutes|proposal|payslip|pay slip|ticket|boarding pass)$/i;
+
+// Lines that are never a good title
+const JUNK_LINE_RES = [
+  /^page\s*\d+(\s*(of|\/)\s*\d+)?$/i,
+  /^\d+\s*(of|\/)\s*\d+$/,
+  /https?:\/\/|www\./i,
+  /\S+@\S+\.\S+/,
+  /^[\d\s\-\/.,:]+$/,
+  /^(confidential|draft|copy|original|sample|table of contents|contents)$/i
+];
+
+// Make a string safe to use as a filename (cuts at a word boundary when long)
+function sanitizeFilename(str) {
+  let s = str.replace(/[\\/:*?"<>|%\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s.length > 80) {
+    s = s.slice(0, 80);
+    const lastSpace = s.lastIndexOf(' ');
+    if (lastSpace > 40) s = s.slice(0, lastSpace);
+  }
+  return s.replace(/[. ]+$/, '');
+}
+
+// "ANNUAL REPORT 2025" -> "Annual Report 2025"
+function tidyCase(str) {
+  const letters = str.replace(/[^A-Za-z]/g, '');
+  if (letters.length >= 4 && str === str.toUpperCase()) {
+    return str.toLowerCase().replace(/(^|[\s\-(])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+  }
+  return str;
+}
+
+// Metadata titles are often junk ("Microsoft Word - foo.docx", "Untitled", a file path...)
+function cleanMetadataTitle(raw) {
+  let t = (raw || '').trim();
+  t = t.replace(/^microsoft (word|excel|powerpoint)\s*-\s*/i, '')
+    .replace(/\.(docx?|xlsx?|pptx?|pdf|indd|rtf|txt)$/i, '')
+    .trim();
+  if (t.length < 4) return null;
+  if (/^(untitled|document\d*|slide \d+|new document|presentation\d*|book\d*)$/i.test(t)) return null;
+  if (/^([A-Za-z]:\\|\/|~\/)/.test(t)) return null; // looks like a path
+  if (/^[\d\s\-_.]+$/.test(t)) return null;
+  return t;
+}
+
+function isJunkLine(text) {
+  const cjk = /[一-鿿]/.test(text);
+  if (text.length < (cjk ? 2 : 4)) return true;
+  if (!/[A-Za-zÀ-ɏЀ-ӿ一-鿿]/.test(text)) return true;
+  if (JUNK_LINE_RES.some(re => re.test(text))) return true;
+  const digits = (text.match(/\d/g) || []).length;
+  return digits / text.length > 0.5; // phone numbers, codes, tables of figures
+}
+
+// Read a page's text as lines (top to bottom), with the biggest font size per line
+async function extractPageLines(pdfPage) {
+  const content = await pdfPage.getTextContent();
+  const [, vy0, , vy1] = pdfPage.view;
+  const pageH = (vy1 - vy0) || 792;
+
+  const items = content.items
+    .filter(it => typeof it.str === 'string' && it.transform)
+    .map(it => ({
+      str: it.str,
+      x: it.transform[4],
+      y: it.transform[5],
+      w: it.width || 0,
+      size: Math.hypot(it.transform[0], it.transform[1]) || it.height || 0
+    }))
+    .filter(it => it.size > 0);
+
+  // Group items into lines by y position (tolerance scales with font size)
+  const lines = [];
+  for (const it of items) {
+    let line = lines.find(l => Math.abs(l.y - it.y) <= Math.max(l.size || it.size, it.size) * 0.4);
+    if (!line) {
+      line = { y: it.y, size: 0, items: [] };
+      lines.push(line);
+    }
+    line.items.push(it);
+    if (it.str.trim()) line.size = Math.max(line.size, it.size);
+  }
+
+  // Build each line's text in left-to-right order, inserting spaces only where there's a gap
+  for (const line of lines) {
+    line.items.sort((a, b) => a.x - b.x);
+    let text = '';
+    let prevEnd = null;
+    let pendingSpace = false;
+    for (const it of line.items) {
+      if (!it.str.trim()) { pendingSpace = true; continue; }
+      if (/^\s/.test(it.str)) pendingSpace = true;
+      const gap = prevEnd === null ? 0 : it.x - prevEnd;
+      if (text && (pendingSpace || gap > it.size * 0.2)) text += ' ';
+      text += it.str.trim();
+      prevEnd = it.x + it.w;
+      pendingSpace = /\s$/.test(it.str);
+    }
+    line.text = text.replace(/\s+/g, ' ').trim();
+  }
+
+  const result = lines.filter(l => l.text).sort((a, b) => b.y - a.y);
+  return { lines: result, pageH, vy0 };
+}
+
+// The font size most of the text on the page uses (weighted by characters)
+function bodyFontSize(lines) {
+  const counts = new Map();
+  for (const l of lines) {
+    const k = Math.round(l.size * 2) / 2;
+    counts.set(k, (counts.get(k) || 0) + l.text.length);
+  }
+  let best = 0;
+  let bestN = -1;
+  for (const [k, n] of counts) {
+    if (n > bestN) { best = k; bestN = n; }
+  }
+  return best || 1;
+}
+
+// Choose the heading that stands out most. Returns null if nothing clearly looks like a title.
+function pickTitle(lines, pageH, vy0, bodySize) {
+  const rel = y => (y - vy0) / pageH; // 0 = bottom of page, 1 = top
+  const usable = lines.filter(l => !isJunkLine(l.text) && rel(l.y) > 0.08); // skip footers
+
+  // Join a heading that wraps onto 2-3 lines at the same font size
+  const merged = [];
+  for (const l of usable) {
+    const prev = merged[merged.length - 1];
+    if (prev && prev.count < 3 &&
+      prev.size >= bodySize * 1.1 && l.size >= bodySize * 1.1 &&
+      Math.abs(prev.size - l.size) <= prev.size * 0.08 &&
+      (prev.lastY - l.y) <= l.size * 1.9) {
+      prev.text += ' ' + l.text;
+      prev.lastY = l.y;
+      prev.count++;
+    } else {
+      merged.push({ text: l.text, size: l.size, y: l.y, lastY: l.y, count: 1 });
+    }
+  }
+
+  let best = null;
+  let bestScore = 0;
+  for (const c of merged) {
+    if (c.text.length > 120) continue;
+    const ratio = c.size / bodySize;
+    if (ratio < 1.15) continue; // must be visibly bigger than body text
+    const r = rel(c.y);
+    const position = r >= 0.6 ? 1 : Math.max(0.25, r / 0.6); // prefer the top of the page
+    const header = r > 0.96 ? 0.85 : 1;                       // slight penalty for running headers
+    // Short one-word headings are often logos/brand names; document-type words ("Invoice") are good titles
+    const length = c.text.length < 8 ? 0.55 : c.text.length < 12 ? 0.85 : 1;
+    const generic = GENERIC_TITLE_RE.test(c.text.trim()) ? 1.4 : 1;
+    const score = ratio * position * header * length * generic;
+    if (score > bestScore) { best = c; bestScore = score; }
+  }
+  if (best) return best.text;
+
+  // No heading stands out: accept the first line only if it looks like a title
+  // (short, no sentence punctuation, not starting lowercase); otherwise give up
+  const first = merged.find(c => c.text.length >= 6 && c.text.length <= 60);
+  if (first && first.text.split(/\s+/).length <= 7 && !/[.,;!?]$/.test(first.text) && !/^[a-z]/.test(first.text)) {
+    return first.text;
+  }
+  return null;
+}
+
+// Find a date in the text and return it as YYYY-MM-DD
+function findDocDate(text) {
+  const pad = n => String(n).padStart(2, '0');
+  let m = text.match(/\b((?:19|20)\d{2})-(\d{2})-(\d{2})\b/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = text.match(new RegExp(`\\b(${MONTH_RE})[a-z]*\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+((?:19|20)\\d{2})\\b`, 'i'));
+  if (m) return `${m[3]}-${pad(MONTHS.indexOf(m[1].toLowerCase()) + 1)}-${pad(m[2])}`;
+  m = text.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_RE})[a-z]*\\.?,?\\s+((?:19|20)\\d{2})\\b`, 'i'));
+  if (m) return `${m[3]}-${pad(MONTHS.indexOf(m[2].toLowerCase()) + 1)}-${pad(m[1])}`;
+  return null;
+}
+
+// "Invoice" -> "Invoice INV-2026-001" (or "Invoice 2026-03-14") when the page has a reference or date
+function enrichGenericTitle(title, lines) {
+  if (!GENERIC_TITLE_RE.test(title.trim())) return title;
+  const fullText = lines.map(l => l.text).join('\n');
+  const idMatch = fullText.match(/\b(?:invoice|receipt|order|reference|ref|statement|quote|po|bill)\s*(?:no\.?|number|num|#)?\s*[:#]?\s*([A-Z0-9][A-Z0-9\-\/]*\d[A-Z0-9\-\/]*)/i);
+  if (idMatch && idMatch[1].length <= 24) return `${title} ${idMatch[1]}`;
+  const date = findDocDate(fullText);
+  return date ? `${title} ${date}` : title;
+}
+
+// Title found in the content of ONE page (null if none)
+async function extractTitleFromPage(pdfPage) {
+  try {
+    const { lines, pageH, vy0 } = await extractPageLines(pdfPage);
+    if (lines.length === 0) return null; // no text layer (scanned PDF)
+    const title = pickTitle(lines, pageH, vy0, bodyFontSize(lines));
+    if (!title) return null;
+    return sanitizeFilename(tidyCase(enrichGenericTitle(title, lines))) || null;
+  } catch (e) {
+    console.warn('Title detection failed:', e);
+    return null;
+  }
+}
+
+// Title of a whole file: usable metadata title first, otherwise the heading on its page 1
+async function suggestTitleFromPdf(pdf) {
+  try {
+    const meta = await pdf.getMetadata();
+    const t = cleanMetadataTitle(meta?.info?.Title);
+    if (t) return sanitizeFilename(tidyCase(t));
+  } catch (e) { /* ignore */ }
+
+  try {
+    const page = await pdf.getPage(1);
+    return await extractTitleFromPage(page);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Cached per page so switching options is instant
+function getPageTitle(pageObj) {
+  if (!pageTitleCache.has(pageObj.id)) {
+    pageTitleCache.set(pageObj.id, extractTitleFromPage(pageObj.pdfPage));
+  }
+  return pageTitleCache.get(pageObj.id);
+}
+
+function getNameSource() {
+  const checked = document.querySelector('.name-source-radio:checked');
+  return checked ? checked.value : 'first-page';
+}
+
+function setNameHint(note) {
+  document.querySelectorAll('.name-source-hint').forEach(el => {
+    el.textContent = note || '';
+    el.classList.toggle('hidden', !note);
+  });
+}
+
+// Work out which name to suggest for the chosen option
+async function resolveSuggestedName(mode) {
+  const pages = pageManager.getAllPages();
+  if (pages.length === 0) return { name: null, note: '' };
+
+  const fileBaseName = p =>
+    sanitizeFilename(pageManager.originalFiles[p.fileIndex].name.replace(/\.pdf$/i, ''));
+
+  if (mode === 'selected-file') {
+    const sel = pageManager.getSelectedPages()[0]; // first selected, in grid order
+    if (!sel) return { name: null, note: '' };
+    const title = pageManager.suggestedNames[sel.fileIndex];
+    if (title) return { name: title, note: '' };
+    return { name: fileBaseName(sel), note: 'No title found in that file, so its file name was used.' };
+  }
+
+  // 'first-page': the page currently first in the grid
+  const first = pages[0];
+  const title = (await getPageTitle(first)) || pageManager.suggestedNames[first.fileIndex];
+  if (title) return { name: title, note: '' };
+  return { name: fileBaseName(first), note: 'No title found on the first page, so its file name was used.' };
+}
+
+// explicit = the user clicked a radio (always apply).
+// otherwise = automatic refresh (upload, selection, reorder, delete): never overwrites a name the user typed.
+async function applyNameFromSource({ explicit = false } = {}) {
+  if (explicit) userEditedName = false; // picking a source is an explicit request: automatic updates resume
+  if (userEditedName) return;
+  const token = ++nameApplyToken;
+  const { name, note } = await resolveSuggestedName(getNameSource());
+  if (token !== nameApplyToken) return; // a newer request took over
+  setNameHint(note);
+  if (name) {
+    mergeFilename.value = name;
+    extractFilename.value = name;
+    userEditedName = false;
+  }
+}
+
+// ==================================================================
+
 // Process uploaded files
 async function processFiles(files) {
   console.log('=== PROCESSING FILES ===');
@@ -209,10 +592,10 @@ async function processFiles(files) {
 
   files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
-  // Set default filename ONLY on first upload
+  // Set default filename ONLY on first upload (fallback; replaced by content-based name if found)
   const isFirstUpload = pageManager.getAllPages().length === 0;
   if (isFirstUpload) {
-    const firstName = files[0].name.replace('.pdf', '');
+    const firstName = files[0].name.replace(/\.pdf$/i, '');
     mergeFilename.value = firstName;
     extractFilename.value = firstName;
   }
@@ -238,6 +621,9 @@ async function processFiles(files) {
   console.log('=== ALL FILES PROCESSED ===');
   updateStats();
   updatePageNumbers(); // Update page numbers to reflect new pages
+
+  // Name the output from the document content (follows the chosen radio option)
+  applyNameFromSource();
 }
 
 // Load PDF and render pages
@@ -252,6 +638,10 @@ async function loadPDF(file, fileIndex) {
     console.log('Loading PDF document...');
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     console.log(`✓ PDF loaded: ${pdf.numPages} pages`);
+
+    // Detect a title from the content for auto-naming
+    pageManager.suggestedNames[fileIndex] = await suggestTitleFromPdf(pdf);
+    console.log(`Suggested name: ${pageManager.suggestedNames[fileIndex] || '(none)'}`);
 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const pageStartTime = performance.now();
@@ -396,6 +786,7 @@ async function addPageToGrid(pageObj) {
     pageManager.toggleSelection(pageObj.id);
     pageDiv.classList.toggle('selected', pageManager.getPage(pageObj.id).selected);
     updateStats();
+    applyNameFromSource();
   });
 
   rotateBtn.addEventListener('click', async (e) => {
@@ -414,6 +805,7 @@ async function addPageToGrid(pageObj) {
     pageDiv.remove();
     updatePageNumbers();
     updateStats();
+    applyNameFromSource();
   });
 
   // Drag and drop for reordering
@@ -455,6 +847,7 @@ function handleDrop(e) {
     }
 
     updatePageNumbers();
+    applyNameFromSource();
   }
 }
 
@@ -484,6 +877,7 @@ function handleSelectAll(e) {
     page.classList.toggle('selected', e.target.checked);
   });
   updateStats();
+  applyNameFromSource();
 }
 
 // Switch tabs
@@ -807,60 +1201,95 @@ function downloadFile(data, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-// Modal functions
+// ==================== FULL-SCREEN PREVIEW ====================
+
 async function openPreviewModal(pageId) {
   const page = pageManager.getPage(pageId);
   if (!page) return;
 
   currentPreviewPageId = pageId;
 
-  // Update modal info
   const pageIndex = pageManager.getAllPages().findIndex(p => p.id === pageId);
-  modalPageTitle.textContent = `Page ${pageIndex + 1}`;
+  modalPageTitle.textContent = `Page ${pageIndex + 1} of ${pageManager.getAllPages().length}`;
   modalFileName.textContent = page.fileName;
 
-  // Render large version of the page
-  await renderPreviewPage(page);
-
-  // Show modal
-  previewModal.classList.remove('hidden');
-
-  // Update navigation buttons
+  previewModal.classList.remove('hidden'); // show first so we can measure
   updateNavigationButtons();
+  previewZoom = 1; // each page opens fitted to the screen
+  await renderPreviewPage(page, { resetView: true });
 }
 
 function closePreviewModal() {
+  previewRenderToken++; // cancel any in-flight render
   previewModal.classList.add('hidden');
   currentPreviewPageId = null;
+  previewZoom = 1;
+  panning = null;
+  modalCanvas.classList.remove('panning', 'pannable');
   modalCanvas.innerHTML = '';
 }
 
-async function renderPreviewPage(page) {
-  // Render at higher scale for better quality
-  const viewport = page.pdfPage.getViewport({ scale: 1.5, rotation: page.rotation });
+function setPreviewZoom(z) {
+  const page = pageManager.getPage(currentPreviewPageId);
+  if (!page) return;
+  const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+  if (Math.abs(next - previewZoom) < 0.001) return;
+  previewZoom = next;
+  renderPreviewPage(page);
+}
+
+async function renderPreviewPage(page, { resetView = false } = {}) {
+  const token = ++previewRenderToken; // ignore stale renders on fast navigation
+
+  // Remember which part of the page is centered so zooming keeps it in view
+  const cx = modalCanvas.scrollWidth ? (modalCanvas.scrollLeft + modalCanvas.clientWidth / 2) / modalCanvas.scrollWidth : 0.5;
+  const cy = modalCanvas.scrollHeight ? (modalCanvas.scrollTop + modalCanvas.clientHeight / 2) / modalCanvas.scrollHeight : 0.5;
+
+  const style = getComputedStyle(modalCanvas);
+  const availW = modalCanvas.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const availH = modalCanvas.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+
+  const base = page.pdfPage.getViewport({ scale: 1, rotation: page.rotation });
+  const fit = Math.min(availW / base.width, availH / base.height);
+  const cssScale = fit * previewZoom; // on-screen size
+  const dpr = window.devicePixelRatio || 1;
+
+  // Render scale, reduced if the canvas would be too big for the browser
+  let renderScale = cssScale * dpr;
+  const pixels = base.width * renderScale * base.height * renderScale;
+  if (pixels > MAX_CANVAS_PIXELS) renderScale *= Math.sqrt(MAX_CANVAS_PIXELS / pixels);
+
+  const viewport = page.pdfPage.getViewport({ scale: renderScale, rotation: page.rotation });
+
   const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-
-  canvas.height = viewport.height;
-  canvas.width = viewport.width;
-  canvas.style.maxWidth = '100%';
-  canvas.style.height = 'auto';
-  canvas.style.display = 'block';
-  canvas.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-
-  const renderContext = {
-    canvasContext: context,
-    viewport: viewport
-  };
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  canvas.style.width = `${base.width * cssScale}px`;
+  canvas.style.height = `${base.height * cssScale}px`;
 
   try {
-    await page.pdfPage.render(renderContext).promise;
+    await page.pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
   } catch (error) {
     console.error('Error rendering preview page:', error);
+    return;
   }
 
-  modalCanvas.innerHTML = '';
-  modalCanvas.appendChild(canvas);
+  if (token !== previewRenderToken) return; // a newer render took over
+  modalCanvas.replaceChildren(canvas);
+
+  // Restore / reset scroll position
+  if (resetView) {
+    modalCanvas.scrollTo(0, 0);
+  } else {
+    modalCanvas.scrollLeft = cx * modalCanvas.scrollWidth - modalCanvas.clientWidth / 2;
+    modalCanvas.scrollTop = cy * modalCanvas.scrollHeight - modalCanvas.clientHeight / 2;
+  }
+
+  zoomLevel.textContent = `${Math.round(cssScale * 100)}%`;
+  modalCanvas.classList.toggle(
+    'pannable',
+    modalCanvas.scrollWidth > modalCanvas.clientWidth + 1 || modalCanvas.scrollHeight > modalCanvas.clientHeight + 1
+  );
 }
 
 function navigateToPrevPage() {
@@ -906,7 +1335,7 @@ async function rotatePreviewPage() {
   // Rotate the page
   pageManager.rotatePage(currentPreviewPageId, 90);
 
-  // Re-render preview
+  // Re-render preview (keeps the current zoom, re-fits for the new orientation)
   await renderPreviewPage(page);
 
   // Also update the thumbnail in the grid
