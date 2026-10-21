@@ -28,7 +28,7 @@
   right: 0;
   z-index: 2;
   height: 72px;
-  padding: 0 16px 0 20px;
+  padding: 0 calc(16px + var(--sbw, 0px)) 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -135,7 +135,7 @@
 }
 
 .preview-nav-next {
-  right: 16px;
+  right: calc(16px + var(--sbw, 0px));
 }
 
 .page-controls {
@@ -172,6 +172,6 @@
   }
 
   .preview-nav-next {
-    right: 6px;
+    right: calc(6px + var(--sbw, 0px));
   }
 }

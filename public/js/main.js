@@ -89,6 +89,7 @@ const modalPageTitle = document.getElementById('modalPageTitle');
 const modalFileName = document.getElementById('modalFileName');
 const modalCanvas = document.getElementById('modalCanvas');
 const modalRotateBtn = document.getElementById('modalRotateBtn');
+const modalDeleteBtn = document.getElementById('modalDeleteBtn');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomLevel = document.getElementById('zoomLevel');
@@ -118,6 +119,7 @@ closeModal.addEventListener('click', closePreviewModal);
 prevPage.addEventListener('click', navigateToPrevPage);
 nextPage.addEventListener('click', navigateToNextPage);
 modalRotateBtn.addEventListener('click', rotatePreviewPage);
+modalDeleteBtn.addEventListener('click', deletePreviewPage);
 
 modalCanvas.addEventListener('click', (e) => {
   if (e.target !== modalCanvas) return;
@@ -846,6 +848,8 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
     modalCanvas.scrollTop = cy * modalCanvas.scrollHeight - modalCanvas.clientHeight / 2;
   }
 
+  previewModal.style.setProperty('--sbw', `${modalCanvas.offsetWidth - modalCanvas.clientWidth}px`);
+
   zoomLevel.textContent = `${Math.round(cssScale * 100)}%`;
 }
 
@@ -880,6 +884,28 @@ function updateNavigationButtons() {
 
   nextPage.style.opacity = currentIndex < allPages.length - 1 ? '1' : '0.3';
   nextPage.style.cursor = currentIndex < allPages.length - 1 ? 'pointer' : 'not-allowed';
+}
+
+function deletePreviewPage() {
+  if (!currentPreviewPageId) return;
+
+  const allPages = pageManager.getAllPages();
+  const index = allPages.findIndex(p => p.id === currentPreviewPageId);
+  if (index === -1) return;
+
+  const removedId = currentPreviewPageId;
+  const nextPageObj = allPages[index + 1] || allPages[index - 1] || null;
+
+  pageManager.removePage(removedId);
+  document.querySelector(`[data-page-id="${removedId}"]`)?.remove();
+  updatePageNumbers();
+  updateStats();
+
+  if (nextPageObj) {
+    openPreviewModal(nextPageObj.id);
+  } else {
+    closePreviewModal();
+  }
 }
 
 async function rotatePreviewPage() {
