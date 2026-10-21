@@ -60,9 +60,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-#modalCanvas.pannable { cursor: grab; }
-#modalCanvas.panning  { cursor: grabbing; }
-
 /* Scroll area now fills the whole screen; top padding keeps the fitted page clear of the floating controls */
 #modalCanvas {
   flex: 1;
