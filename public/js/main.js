@@ -70,7 +70,6 @@ const uploadZone = document.getElementById('uploadZone');
 const pagesGrid = document.getElementById('pagesGrid');
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
-const browseBtn = document.getElementById('browseBtn');
 const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 const selectAllContainer = document.getElementById('selectAllContainer');
 const mergeBtn = document.getElementById('mergeBtn');
@@ -102,7 +101,7 @@ const MAX_CANVAS_PIXELS = 16000000;
 let previewZoom = 1;
 
 uploadBtn.addEventListener('click', () => fileInput.click());
-browseBtn.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', handleFileSelect);
 selectAllCheckbox.addEventListener('change', handleSelectAll);
 mergeBtn.addEventListener('click', handleMerge);

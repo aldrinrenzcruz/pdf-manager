@@ -145,3 +145,24 @@
     right: 6px;
   }
 }
+
+/* Hide rotate/delete until the page card is hovered */
+.page-controls {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.pdf-page:hover .page-controls,
+.pdf-page:focus-within .page-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Touch devices have no hover, so keep the buttons visible there */
+@media (hover: none) {
+  .page-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
