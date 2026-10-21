@@ -375,7 +375,7 @@ async function extractTitleFromPage(pdfPage) {
     const title = pickTitle(lines, pageH, vy0, bodyFontSize(lines));
     if (!title) return null;
     return sanitizeFilename(tidyCase(enrichGenericTitle(title, lines))) || null;
-  } catch (e) {
+  } catch {
     return null;
   }
 }

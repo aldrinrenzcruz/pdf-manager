@@ -29,11 +29,15 @@
   gap: 16px;
   color: #fff;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
-  pointer-events: none;            /* empty areas pass clicks/drags through to the page */
+  pointer-events: none;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
 }
-.preview-toolbar button { pointer-events: auto; }
-.preview-toolbar #modalFileName { color: rgba(255, 255, 255, 0.65); }
+.preview-toolbar button {
+  pointer-events: auto;
+}
+.preview-toolbar #modalFileName {
+  color: rgba(255, 255, 255, 0.65);
+}
 
 /* Buttons float: no background, no border; a faint highlight only on hover */
 .preview-btn {
@@ -49,10 +53,18 @@
   background: transparent;
   opacity: 0.85;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
 }
-.preview-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.14); }
-.preview-btn:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 2px; }
+.preview-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.14);
+}
+.preview-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
 
 .zoom-level {
   min-width: 68px;
@@ -94,15 +106,33 @@
   background: transparent;
   opacity: 0.8;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
 }
-.preview-nav:hover { opacity: 1; background: rgba(255, 255, 255, 0.14); }
-.preview-nav-prev { left: 16px; }
-.preview-nav-next { right: 16px; }
+.preview-nav:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.14);
+}
+.preview-nav-prev {
+  left: 16px;
+}
+.preview-nav-next {
+  right: 16px;
+}
 
 @media (max-width: 640px) {
-  #modalCanvas { padding: 64px 8px 8px; }
-  .preview-nav { width: 40px; height: 40px; }
-  .preview-nav-prev { left: 6px; }
-  .preview-nav-next { right: 6px; }
+  #modalCanvas {
+    padding: 64px 8px 8px;
+  }
+  .preview-nav {
+    width: 40px;
+    height: 40px;
+  }
+  .preview-nav-prev {
+    left: 6px;
+  }
+  .preview-nav-next {
+    right: 6px;
+  }
 }
