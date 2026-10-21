@@ -90,6 +90,7 @@ const modalFileName = document.getElementById('modalFileName');
 const modalCanvas = document.getElementById('modalCanvas');
 const modalRotateBtn = document.getElementById('modalRotateBtn');
 const modalDeleteBtn = document.getElementById('modalDeleteBtn');
+const modalOpenBtn = document.getElementById('modalOpenBtn');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomLevel = document.getElementById('zoomLevel');
@@ -120,6 +121,7 @@ prevPage.addEventListener('click', navigateToPrevPage);
 nextPage.addEventListener('click', navigateToNextPage);
 modalRotateBtn.addEventListener('click', rotatePreviewPage);
 modalDeleteBtn.addEventListener('click', deletePreviewPage);
+modalOpenBtn.addEventListener('click', openPreviewInNewTab);
 
 let modalMouseDownTarget = null;
 modalCanvas.addEventListener('mousedown', (e) => { modalMouseDownTarget = e.target; });
@@ -914,6 +916,21 @@ function updateNavigationButtons() {
 
   nextPage.style.opacity = currentIndex < allPages.length - 1 ? '1' : '0.3';
   nextPage.style.cursor = currentIndex < allPages.length - 1 ? 'pointer' : 'not-allowed';
+}
+
+const sourceUrls = new Map();
+
+function openPreviewInNewTab() {
+  const page = pageManager.getPage(currentPreviewPageId);
+  if (!page) return;
+
+  let url = sourceUrls.get(page.fileIndex);
+  if (!url) {
+    url = URL.createObjectURL(pageManager.originalFiles[page.fileIndex]);
+    sourceUrls.set(page.fileIndex, url);
+  }
+
+  window.open(`${url}#page=${page.originalPageNum}`, '_blank', 'noopener');
 }
 
 function deletePreviewPage() {
