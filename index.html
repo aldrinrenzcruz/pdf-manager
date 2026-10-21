@@ -17,17 +17,8 @@
   <div class="flex flex-col h-screen overflow-hidden">
     <!-- Header -->
     <header class="bg-white border-b border-gray-200 px-6 py-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">PDF Manager</h1>
-        </div>
-        <div class="flex items-center gap-3">
-          <button id="uploadBtn" class="text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium flex items-center gap-2 hidden">
-            <i class="bi-file-earmark-arrow-up"></i>
-            Add PDFs
-          </button>
-          <input type="file" id="fileInput" accept=".pdf" multiple class="hidden">
-        </div>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">PDF Manager</h1>
       </div>
     </header>
 
@@ -65,6 +56,17 @@
           <input type="text" id="outputFilename" placeholder="Filename" aria-label="Filename"
             class="w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
 
+          <button id="addPdfsBtn" type="button" title="Add PDFs" aria-label="Add PDFs"
+            class="text-gray-700 hover:bg-gray-100 w-10 h-10 rounded-lg text-xl flex items-center justify-center">
+            <i class="bi bi-file-earmark-plus"></i>
+          </button>
+          <input type="file" id="fileInput" accept=".pdf" multiple class="hidden">
+
+          <button id="deleteSelectedBtn" disabled title="Delete selected pages" aria-label="Delete selected pages"
+            class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent w-10 h-10 rounded-lg text-xl flex items-center justify-center">
+            <i class="bi bi-trash"></i>
+          </button>
+
           <button id="mergeBtn" disabled
             class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent px-5 py-2 rounded-lg font-medium flex items-center justify-center gap-2">
             <i class="bi bi-files"></i>
@@ -94,11 +96,11 @@
         <button id="zoomInBtn" class="preview-btn" title="Zoom in (+)"><i class="bi bi-zoom-in"></i></button>
       </div>
       <div class="flex items-center gap-2">
-        <button id="modalRotateBtn" class="preview-btn" title="Rotate">
-          <i class="bi bi-arrow-clockwise"></i> Rotate
+        <button id="modalRotateBtn" class="preview-btn preview-btn-icon" title="Rotate" aria-label="Rotate">
+          <i class="bi bi-arrow-clockwise"></i>
         </button>
-        <button id="closeModal" class="preview-btn" title="Close (Esc)">
-          <i class="bi bi-x-lg"></i> Close
+        <button id="closeModal" class="preview-btn preview-btn-icon" title="Close (Esc)" aria-label="Close">
+          <i class="bi bi-x-lg"></i>
         </button>
       </div>
     </div>

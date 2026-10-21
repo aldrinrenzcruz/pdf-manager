@@ -65,11 +65,13 @@ const pageManager = new PDFPageManager();
 let draggedElement = null;
 let draggedIndex = null;
 let busy = false;
+let loadQueue = Promise.resolve();
 
 const uploadZone = document.getElementById('uploadZone');
 const pagesGrid = document.getElementById('pagesGrid');
 const fileInput = document.getElementById('fileInput');
-const uploadBtn = document.getElementById('uploadBtn');
+const addPdfsBtn = document.getElementById('addPdfsBtn');
+const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 const selectAllContainer = document.getElementById('selectAllContainer');
 const mergeBtn = document.getElementById('mergeBtn');
@@ -100,9 +102,12 @@ const ZOOM_STEP = 1.25;
 const MAX_CANVAS_PIXELS = 16000000;
 let previewZoom = 1;
 
-uploadBtn.addEventListener('click', () => fileInput.click());
-uploadZone.addEventListener('click', () => fileInput.click());
+// Both the footer button and the empty-state zone open the same file picker.
+// The button lives outside the zone, so one click never triggers both.
+addPdfsBtn.addEventListener('click', openFilePicker);
+uploadZone.addEventListener('click', openFilePicker);
 fileInput.addEventListener('change', handleFileSelect);
+deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
 selectAllCheckbox.addEventListener('change', handleSelectAll);
 mergeBtn.addEventListener('click', handleMerge);
 extractBtn.addEventListener('click', handleExtract);
@@ -184,6 +189,10 @@ uploadZone.addEventListener('drop', (e) => {
   const files = Array.from(e.dataTransfer.files);
   processFiles(files);
 });
+
+function openFilePicker() {
+  fileInput.click();
+}
 
 function handleFileSelect(e) {
   const files = Array.from(e.target.files);
@@ -383,7 +392,16 @@ async function autoNameFromFirstPage() {
   outputFilename.value = name;
 }
 
-async function processFiles(files) {
+// Queue batches so adding more PDFs while earlier ones are still loading
+// can't interleave pages or file indices.
+function processFiles(files) {
+  loadQueue = loadQueue
+    .then(() => processFilesNow(files))
+    .catch(error => console.error('Failed to process files:', error));
+  return loadQueue;
+}
+
+async function processFilesNow(files) {
   const invalidFiles = files.filter(f => !f.type.includes('pdf'));
   if (invalidFiles.length > 0) {
     alert('Error: Please upload only PDF files.');
@@ -402,7 +420,6 @@ async function processFiles(files) {
 
   uploadZone.classList.add('hidden');
   pagesGrid.classList.remove('hidden');
-  uploadBtn.classList.remove('hidden');
   selectAllContainer.classList.remove('hidden');
 
   for (const file of files) {
@@ -610,6 +627,22 @@ function handleSelectAll(e) {
   updateStats();
 }
 
+function handleDeleteSelected() {
+  const selected = pageManager.getSelectedPages();
+  if (selected.length === 0) return;
+
+  const label = selected.length === 1 ? '1 selected page' : `${selected.length} selected pages`;
+  if (!confirm(`Delete ${label}?`)) return;
+
+  for (const page of selected) {
+    pageManager.removePage(page.id);
+    document.querySelector(`[data-page-id="${page.id}"]`)?.remove();
+  }
+
+  updatePageNumbers();
+  updateStats();
+}
+
 function updateStats() {
   const total = pageManager.getAllPages().length;
   const selected = pageManager.getSelectedPages().length;
@@ -620,6 +653,7 @@ function updateStats() {
 
   mergeBtn.disabled = busy || selected === 0;
   extractBtn.disabled = busy || selected === 0;
+  deleteSelectedBtn.disabled = busy || selected === 0;
 }
 
 async function loadSourcePdfs(pages) {
