@@ -11,7 +11,7 @@ class PDFPageManager {
       pdfPage: pageData.pdfPage,
       originalPageNum: pageData.originalPageNum,
       rotation: pageData.rotation || 0,
-      selected: false,
+      selected: true,
       fileName: pageData.fileName,
       fileIndex: pageData.fileIndex
     };
@@ -64,6 +64,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 const pageManager = new PDFPageManager();
 let draggedElement = null;
 let draggedIndex = null;
+let busy = false;
 
 const uploadZone = document.getElementById('uploadZone');
 const pagesGrid = document.getElementById('pagesGrid');
@@ -72,15 +73,9 @@ const uploadBtn = document.getElementById('uploadBtn');
 const browseBtn = document.getElementById('browseBtn');
 const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 const selectAllContainer = document.getElementById('selectAllContainer');
-const mergeTab = document.getElementById('mergeTab');
-const extractTab = document.getElementById('extractTab');
-const mergeContent = document.getElementById('mergeContent');
-const extractContent = document.getElementById('extractContent');
 const mergeBtn = document.getElementById('mergeBtn');
 const extractBtn = document.getElementById('extractBtn');
-const mergeFilename = document.getElementById('mergeFilename');
-const extractFilename = document.getElementById('extractFilename');
-const mergeSinglePdf = document.getElementById('mergeSinglePdf');
+const outputFilename = document.getElementById('outputFilename');
 const totalPagesSpan = document.getElementById('totalPages');
 const selectedPagesSpan = document.getElementById('selectedPages');
 
@@ -110,14 +105,10 @@ uploadBtn.addEventListener('click', () => fileInput.click());
 browseBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', handleFileSelect);
 selectAllCheckbox.addEventListener('change', handleSelectAll);
-mergeTab.addEventListener('click', () => switchTab('merge'));
-extractTab.addEventListener('click', () => switchTab('extract'));
 mergeBtn.addEventListener('click', handleMerge);
 extractBtn.addEventListener('click', handleExtract);
 
-[mergeFilename, extractFilename].forEach(input => {
-  input.addEventListener('input', () => { userEditedName = true; });
-});
+outputFilename.addEventListener('input', () => { userEditedName = true; });
 
 closeModal.addEventListener('click', closePreviewModal);
 prevPage.addEventListener('click', navigateToPrevPage);
@@ -375,7 +366,7 @@ async function extractTitleFromPage(pdfPage) {
     const title = pickTitle(lines, pageH, vy0, bodyFontSize(lines));
     if (!title) return null;
     return sanitizeFilename(tidyCase(enrichGenericTitle(title, lines))) || null;
-  } catch {
+  } catch (e) {
     return null;
   }
 }
@@ -390,8 +381,7 @@ async function autoNameFromFirstPage() {
 
   const name = title ||
     sanitizeFilename(pageManager.originalFiles[first.fileIndex].name.replace(/\.pdf$/i, ''));
-  mergeFilename.value = name;
-  extractFilename.value = name;
+  outputFilename.value = name;
 }
 
 async function processFiles(files) {
@@ -408,9 +398,7 @@ async function processFiles(files) {
   const isFirstUpload = pageManager.getAllPages().length === 0;
   if (isFirstUpload) {
     userEditedName = false;
-    const firstName = files[0].name.replace(/\.pdf$/i, '');
-    mergeFilename.value = firstName;
-    extractFilename.value = firstName;
+    outputFilename.value = files[0].name.replace(/\.pdf$/i, '');
   }
 
   uploadZone.classList.add('hidden');
@@ -478,6 +466,7 @@ async function addPageToGrid(pageObj) {
   pageDiv.className = 'pdf-page bg-white rounded-lg shadow-md overflow-hidden cursor-move relative';
   pageDiv.dataset.pageId = pageObj.id;
   pageDiv.draggable = true;
+  pageDiv.classList.toggle('selected', pageObj.selected);
 
   const currentIndex = pageManager.pages.findIndex(p => p.id === pageObj.id);
 
@@ -622,27 +611,16 @@ function handleSelectAll(e) {
   updateStats();
 }
 
-function switchTab(tab) {
-  if (tab === 'merge') {
-    mergeTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-    mergeTab.classList.remove('text-gray-600');
-    extractTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-    extractTab.classList.add('text-gray-600');
-    mergeContent.classList.remove('hidden');
-    extractContent.classList.add('hidden');
-  } else {
-    extractTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-    extractTab.classList.remove('text-gray-600');
-    mergeTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-    mergeTab.classList.add('text-gray-600');
-    extractContent.classList.remove('hidden');
-    mergeContent.classList.add('hidden');
-  }
-}
-
 function updateStats() {
-  totalPagesSpan.textContent = pageManager.getAllPages().length;
-  selectedPagesSpan.textContent = pageManager.getSelectedPages().length;
+  const total = pageManager.getAllPages().length;
+  const selected = pageManager.getSelectedPages().length;
+
+  totalPagesSpan.textContent = total;
+  selectedPagesSpan.textContent = selected;
+  selectAllCheckbox.checked = total > 0 && selected === total;
+
+  mergeBtn.disabled = busy || selected === 0;
+  extractBtn.disabled = busy || selected === 0;
 }
 
 async function loadSourcePdfs(pages) {
@@ -668,24 +646,17 @@ async function copyPageInto(targetPdf, sourcePdfs, page) {
 }
 
 async function handleMerge() {
-  const selectedPages = pageManager.getSelectedPages();
-  const pagesToMerge = selectedPages.length > 0 ? selectedPages : pageManager.getAllPages();
+  const pagesToMerge = pageManager.getSelectedPages();
+  if (pagesToMerge.length === 0) return;
 
-  if (pagesToMerge.length === 0) {
-    alert('No pages to merge');
-    return;
-  }
-
-  mergeBtn.disabled = true;
-  mergeBtn.textContent = 'Merging...';
+  busy = true;
+  updateStats();
 
   try {
     const mergedPdf = await PDFLib.PDFDocument.create();
     const loadedPdfs = await loadSourcePdfs(pagesToMerge);
 
     for (let i = 0; i < pagesToMerge.length; i++) {
-      mergeBtn.textContent = `Merging ${i + 1}/${pagesToMerge.length}...`;
-
       try {
         await copyPageInto(mergedPdf, loadedPdfs, pagesToMerge[i]);
       } catch (pageError) {
@@ -694,86 +665,64 @@ async function handleMerge() {
     }
 
     const pdfBytes = await mergedPdf.save();
-    const filename = mergeFilename.value.trim() || 'merged-document';
+    const filename = outputFilename.value.trim() || 'merged-document';
     downloadFile(pdfBytes, `${filename}.pdf`, 'application/pdf');
   } catch (error) {
     console.error('Merge failed:', error);
     alert(`Error merging PDF: ${error.message}\n\nCheck console for details.`);
   } finally {
-    mergeBtn.disabled = false;
-    mergeBtn.innerHTML = '<i class="bi bi-files"></i> Merge PDF';
+    busy = false;
+    updateStats();
   }
 }
 
 async function handleExtract() {
-  const selectedPages = pageManager.getSelectedPages();
-  const pagesToExtract = selectedPages.length > 0 ? selectedPages : pageManager.getAllPages();
+  const pagesToSplit = pageManager.getSelectedPages();
+  if (pagesToSplit.length === 0) return;
 
-  if (pagesToExtract.length === 0) {
-    alert('No pages to extract');
-    return;
-  }
-
-  extractBtn.disabled = true;
-  extractBtn.textContent = 'Extracting...';
+  busy = true;
+  updateStats();
 
   try {
-    const loadedPdfs = await loadSourcePdfs(pagesToExtract);
+    const loadedPdfs = await loadSourcePdfs(pagesToSplit);
+    const filename = outputFilename.value.trim() || 'split-pages';
+    const allPages = pageManager.getAllPages();
 
-    if (mergeSinglePdf.checked) {
-      const extractedPdf = await PDFLib.PDFDocument.create();
-
-      for (let i = 0; i < pagesToExtract.length; i++) {
-        extractBtn.textContent = `Extracting ${i + 1}/${pagesToExtract.length}...`;
-
-        try {
-          await copyPageInto(extractedPdf, loadedPdfs, pagesToExtract[i]);
-        } catch (pageError) {
-          throw new Error(`Failed on page ${i + 1}: ${pageError.message}`);
-        }
-      }
-
-      const pdfBytes = await extractedPdf.save();
-      const filename = extractFilename.value.trim() || 'extracted-pages';
-      downloadFile(pdfBytes, `${filename}.pdf`, 'application/pdf');
-    } else if (pagesToExtract.length === 1) {
-      const page = pagesToExtract[0];
+    if (pagesToSplit.length === 1) {
+      const page = pagesToSplit[0];
       const singlePdf = await PDFLib.PDFDocument.create();
       await copyPageInto(singlePdf, loadedPdfs, page);
 
       const pdfBytes = await singlePdf.save();
-      const filename = extractFilename.value.trim() || 'extracted-page';
-      const pageIndex = pageManager.getAllPages().findIndex(p => p.id === page.id);
+      const pageIndex = allPages.findIndex(p => p.id === page.id);
       downloadFile(pdfBytes, `${filename}_page-${pageIndex + 1}.pdf`, 'application/pdf');
     } else {
       const zip = new JSZip();
-      const filename = extractFilename.value.trim() || 'extracted-pages';
 
-      for (let i = 0; i < pagesToExtract.length; i++) {
-        const page = pagesToExtract[i];
-        extractBtn.textContent = `Extracting ${i + 1}/${pagesToExtract.length}...`;
+      for (let i = 0; i < pagesToSplit.length; i++) {
+        const page = pagesToSplit[i];
 
         try {
           const singlePdf = await PDFLib.PDFDocument.create();
           await copyPageInto(singlePdf, loadedPdfs, page);
 
           const pdfBytes = await singlePdf.save();
-          const pageIndex = pageManager.getAllPages().findIndex(p => p.id === page.id);
+          const pageIndex = allPages.findIndex(p => p.id === page.id);
           zip.file(`${filename}_page-${pageIndex + 1}.pdf`, pdfBytes);
         } catch (pageError) {
-          throw new Error(`Failed on PDF ${i + 1}: ${pageError.message}`);
+          throw new Error(`Failed on page ${i + 1}: ${pageError.message}`);
         }
       }
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, `${filename}_extract.zip`, 'application/zip');
+      downloadFile(zipBlob, `${filename}_split.zip`, 'application/zip');
     }
   } catch (error) {
-    console.error('Extract failed:', error);
-    alert(`Error extracting PDF: ${error.message}\n\nCheck console for details.`);
+    console.error('Split failed:', error);
+    alert(`Error splitting PDF: ${error.message}\n\nCheck console for details.`);
   } finally {
-    extractBtn.disabled = false;
-    extractBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-down"></i> Extract Pages';
+    busy = false;
+    updateStats();
   }
 }
 
