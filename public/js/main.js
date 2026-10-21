@@ -121,8 +121,11 @@ nextPage.addEventListener('click', navigateToNextPage);
 modalRotateBtn.addEventListener('click', rotatePreviewPage);
 modalDeleteBtn.addEventListener('click', deletePreviewPage);
 
+let modalMouseDownTarget = null;
+modalCanvas.addEventListener('mousedown', (e) => { modalMouseDownTarget = e.target; });
+
 modalCanvas.addEventListener('click', (e) => {
-  if (e.target !== modalCanvas) return;
+  if (e.target !== modalCanvas || modalMouseDownTarget !== modalCanvas) return;
   if (e.clientY < previewToolbar.getBoundingClientRect().bottom) return;
   closePreviewModal();
 });
@@ -173,7 +176,9 @@ previewModal.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 modalCanvas.addEventListener('dblclick', (e) => {
-  if (e.target.tagName === 'CANVAS') setPreviewZoom(previewZoom > 1.01 ? 1 : 2.5);
+  if (e.target.tagName === 'CANVAS' || e.target.classList.contains('textLayer')) {
+    setPreviewZoom(previewZoom > 1.01 ? 1 : 2.5);
+  }
 });
 
 uploadZone.addEventListener('dragover', (e) => {
@@ -839,7 +844,18 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
   }
 
   if (token !== previewRenderToken) return;
-  modalCanvas.replaceChildren(canvas);
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'preview-page';
+  wrapper.style.width = canvas.style.width;
+  wrapper.style.height = canvas.style.height;
+
+  const textLayer = document.createElement('div');
+  textLayer.className = 'textLayer';
+  textLayer.style.setProperty('--scale-factor', cssScale);
+
+  wrapper.append(canvas, textLayer);
+  modalCanvas.replaceChildren(wrapper);
 
   if (resetView) {
     modalCanvas.scrollTo(0, 0);
@@ -851,6 +867,20 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
   previewModal.style.setProperty('--sbw', `${modalCanvas.offsetWidth - modalCanvas.clientWidth}px`);
 
   zoomLevel.textContent = `${Math.round(cssScale * 100)}%`;
+
+  renderPreviewTextLayer(page, textLayer, cssScale, token);
+}
+
+async function renderPreviewTextLayer(page, container, scale, token) {
+  try {
+    const textContent = await page.pdfPage.getTextContent();
+    if (token !== previewRenderToken) return;
+
+    const viewport = page.pdfPage.getViewport({ scale, rotation: page.rotation });
+    await pdfjsLib.renderTextLayer({ textContentSource: textContent, container, viewport }).promise;
+  } catch (error) {
+    console.error('Error rendering text layer:', error);
+  }
 }
 
 function navigateToPrevPage() {
