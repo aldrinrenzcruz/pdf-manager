@@ -28,7 +28,6 @@ class PDFPageManager {
     this.pages = [];
     this.nextId = 1;
     this.originalFiles = [];
-    this.suggestedNames = {}; // fileIndex -> suggested filename (from content)
   }
 
   addPage(pageData) {
@@ -89,7 +88,6 @@ class PDFPageManager {
   clear() {
     this.pages = [];
     this.originalFiles = [];
-    this.suggestedNames = {};
     this.nextId = 1;
   }
 }
@@ -157,15 +155,8 @@ mergeTab.addEventListener('click', () => switchTab('merge'));
 extractTab.addEventListener('click', () => switchTab('extract'));
 mergeBtn.addEventListener('click', handleMerge);
 extractBtn.addEventListener('click', handleExtract);
-// Filename source radios (kept in sync between the Merge and Extract tabs)
-document.querySelectorAll('.name-source-radio').forEach(radio => {
-  radio.addEventListener('click', () => {
-    document.querySelectorAll(`.name-source-radio[value="${radio.value}"]`).forEach(r => (r.checked = true));
-    applyNameFromSource({ explicit: true });
-  });
-});
 
-// Once the user types a name themselves, automatic updates stop overwriting it
+// Once the user types a name themselves, automatic naming stops overwriting it
 [mergeFilename, extractFilename].forEach(input => {
   input.addEventListener('input', () => { userEditedName = true; });
 });
@@ -288,11 +279,9 @@ function handleFileSelect(e) {
   fileInput.value = ''; // Reset input
 }
 
-// ==================== AUTO-NAMING FROM CONTENT ====================
+// ==================== AUTO-NAMING FROM FIRST PAGE ====================
 
-let userEditedName = false;        // becomes true once the user types in a filename box
-let nameApplyToken = 0;            // guards against out-of-order async results
-const pageTitleCache = new Map();  // page id -> Promise<string|null>
+let userEditedName = false; // becomes true once the user types in a filename box
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const MONTH_RE = MONTHS.join('|');
@@ -328,19 +317,6 @@ function tidyCase(str) {
     return str.toLowerCase().replace(/(^|[\s\-(])([a-z])/g, (m, a, b) => a + b.toUpperCase());
   }
   return str;
-}
-
-// Metadata titles are often junk ("Microsoft Word - foo.docx", "Untitled", a file path...)
-function cleanMetadataTitle(raw) {
-  let t = (raw || '').trim();
-  t = t.replace(/^microsoft (word|excel|powerpoint)\s*-\s*/i, '')
-    .replace(/\.(docx?|xlsx?|pptx?|pdf|indd|rtf|txt)$/i, '')
-    .trim();
-  if (t.length < 4) return null;
-  if (/^(untitled|document\d*|slide \d+|new document|presentation\d*|book\d*)$/i.test(t)) return null;
-  if (/^([A-Za-z]:\\|\/|~\/)/.test(t)) return null; // looks like a path
-  if (/^[\d\s\-_.]+$/.test(t)) return null;
-  return t;
 }
 
 function isJunkLine(text) {
@@ -501,79 +477,20 @@ async function extractTitleFromPage(pdfPage) {
   }
 }
 
-// Title of a whole file: usable metadata title first, otherwise the heading on its page 1
-async function suggestTitleFromPdf(pdf) {
-  try {
-    const meta = await pdf.getMetadata();
-    const t = cleanMetadataTitle(meta?.info?.Title);
-    if (t) return sanitizeFilename(tidyCase(t));
-  } catch (e) { /* ignore */ }
-
-  try {
-    const page = await pdf.getPage(1);
-    return await extractTitleFromPage(page);
-  } catch (e) {
-    return null;
-  }
-}
-
-// Cached per page so switching options is instant
-function getPageTitle(pageObj) {
-  if (!pageTitleCache.has(pageObj.id)) {
-    pageTitleCache.set(pageObj.id, extractTitleFromPage(pageObj.pdfPage));
-  }
-  return pageTitleCache.get(pageObj.id);
-}
-
-function getNameSource() {
-  const checked = document.querySelector('.name-source-radio:checked');
-  return checked ? checked.value : 'first-page';
-}
-
-function setNameHint(note) {
-  document.querySelectorAll('.name-source-hint').forEach(el => {
-    el.textContent = note || '';
-    el.classList.toggle('hidden', !note);
-  });
-}
-
-// Work out which name to suggest for the chosen option
-async function resolveSuggestedName(mode) {
-  const pages = pageManager.getAllPages();
-  if (pages.length === 0) return { name: null, note: '' };
-
-  const fileBaseName = p =>
-    sanitizeFilename(pageManager.originalFiles[p.fileIndex].name.replace(/\.pdf$/i, ''));
-
-  if (mode === 'selected-file') {
-    const sel = pageManager.getSelectedPages()[0]; // first selected, in grid order
-    if (!sel) return { name: null, note: '' };
-    const title = pageManager.suggestedNames[sel.fileIndex];
-    if (title) return { name: title, note: '' };
-    return { name: fileBaseName(sel), note: 'No title found in that file, so its file name was used.' };
-  }
-
-  // 'first-page': the page currently first in the grid
-  const first = pages[0];
-  const title = (await getPageTitle(first)) || pageManager.suggestedNames[first.fileIndex];
-  if (title) return { name: title, note: '' };
-  return { name: fileBaseName(first), note: 'No title found on the first page, so its file name was used.' };
-}
-
-// explicit = the user clicked a radio (always apply).
-// otherwise = automatic refresh (upload, selection, reorder, delete): never overwrites a name the user typed.
-async function applyNameFromSource({ explicit = false } = {}) {
-  if (explicit) userEditedName = false; // picking a source is an explicit request: automatic updates resume
+// Name the output after the title on the first page in the grid (falls back to its file name).
+// Runs once after PDFs are loaded/added; never overwrites a name the user typed.
+async function autoNameFromFirstPage() {
   if (userEditedName) return;
-  const token = ++nameApplyToken;
-  const { name, note } = await resolveSuggestedName(getNameSource());
-  if (token !== nameApplyToken) return; // a newer request took over
-  setNameHint(note);
-  if (name) {
-    mergeFilename.value = name;
-    extractFilename.value = name;
-    userEditedName = false;
-  }
+  const first = pageManager.getAllPages()[0];
+  if (!first) return;
+
+  const title = await extractTitleFromPage(first.pdfPage);
+  if (userEditedName) return; // user typed while the page was being read
+
+  const name = title ||
+    sanitizeFilename(pageManager.originalFiles[first.fileIndex].name.replace(/\.pdf$/i, ''));
+  mergeFilename.value = name;
+  extractFilename.value = name;
 }
 
 // ==================================================================
@@ -595,9 +512,10 @@ async function processFiles(files) {
 
   files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
-  // Set default filename ONLY on first upload (fallback; replaced by content-based name if found)
+  // Set default filename ONLY on first upload (fallback; replaced by the first-page title if found)
   const isFirstUpload = pageManager.getAllPages().length === 0;
   if (isFirstUpload) {
+    userEditedName = false; // fresh start (e.g. all pages were deleted): allow auto-naming again
     const firstName = files[0].name.replace(/\.pdf$/i, '');
     mergeFilename.value = firstName;
     extractFilename.value = firstName;
@@ -625,8 +543,8 @@ async function processFiles(files) {
   updateStats();
   updatePageNumbers(); // Update page numbers to reflect new pages
 
-  // Name the output from the document content (follows the chosen radio option)
-  applyNameFromSource();
+  // Name the output from the first page's title
+  autoNameFromFirstPage();
 }
 
 // Load PDF and render pages
@@ -641,10 +559,6 @@ async function loadPDF(file, fileIndex) {
     console.log('Loading PDF document...');
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     console.log(`✓ PDF loaded: ${pdf.numPages} pages`);
-
-    // Detect a title from the content for auto-naming
-    pageManager.suggestedNames[fileIndex] = await suggestTitleFromPdf(pdf);
-    console.log(`Suggested name: ${pageManager.suggestedNames[fileIndex] || '(none)'}`);
 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const pageStartTime = performance.now();
@@ -736,7 +650,7 @@ async function addPageToGrid(pageObj) {
   const checkboxContainer = document.createElement('div');
   checkboxContainer.className = 'absolute top-2 right-2 z-10';
   checkboxContainer.innerHTML = `
-    <input type="checkbox" class="page-checkbox w-5 h-5 text-blue-600 rounded cursor-pointer" 
+    <input type="checkbox" class="page-checkbox w-5 h-5 text-blue-600 rounded cursor-pointer"
         ${pageObj.selected ? 'checked' : ''}>
   `;
 
@@ -789,7 +703,6 @@ async function addPageToGrid(pageObj) {
     pageManager.toggleSelection(pageObj.id);
     pageDiv.classList.toggle('selected', pageManager.getPage(pageObj.id).selected);
     updateStats();
-    applyNameFromSource();
   });
 
   rotateBtn.addEventListener('click', async (e) => {
@@ -808,7 +721,6 @@ async function addPageToGrid(pageObj) {
     pageDiv.remove();
     updatePageNumbers();
     updateStats();
-    applyNameFromSource();
   });
 
   // Drag and drop for reordering
@@ -850,7 +762,6 @@ function handleDrop(e) {
     }
 
     updatePageNumbers();
-    applyNameFromSource();
   }
 }
 
@@ -880,7 +791,6 @@ function handleSelectAll(e) {
     page.classList.toggle('selected', e.target.checked);
   });
   updateStats();
-  applyNameFromSource();
 }
 
 // Switch tabs
