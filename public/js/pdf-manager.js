@@ -1,12 +1,12 @@
 const PDFManager = {
-  get pages() { return appData.temp.pages; },
-  set pages(value) { appData.temp.pages = value; },
+  get pages() { return AppData.temp.pages; },
+  set pages(value) { AppData.temp.pages = value; },
 
-  get originalFiles() { return appData.temp.originalFiles; },
+  get originalFiles() { return AppData.temp.originalFiles; },
 
   addPage(pageData) {
     const page = {
-      id: appData.temp.nextId++,
+      id: AppData.temp.nextId++,
       pdfPage: pageData.pdfPage,
       originalPageNum: pageData.originalPageNum,
       rotation: pageData.rotation || 0,

@@ -1,72 +1,6 @@
 AppData.init();
 
-class PDFPageManager {
-  get pages() { return AppData.temp.pages; }
-  set pages(value) { AppData.temp.pages = value; }
-
-  get nextId() { return AppData.temp.nextId; }
-  set nextId(value) { AppData.temp.nextId = value; }
-
-  get originalFiles() { return AppData.temp.originalFiles; }
-  set originalFiles(value) { AppData.temp.originalFiles = value; }
-
-  addPage(pageData) {
-    const page = {
-      id: this.nextId++,
-      pdfPage: pageData.pdfPage,
-      originalPageNum: pageData.originalPageNum,
-      rotation: pageData.rotation || 0,
-      selected: true,
-      fileName: pageData.fileName,
-      fileIndex: pageData.fileIndex
-    };
-    this.pages.push(page);
-    return page;
-  }
-
-  removePage(id) {
-    this.pages = this.pages.filter(p => p.id !== id);
-  }
-
-  getPage(id) {
-    return this.pages.find(p => p.id === id);
-  }
-
-  rotatePage(id, degrees) {
-    const page = this.getPage(id);
-    if (page) {
-      page.rotation = (page.rotation + degrees) % 360;
-    }
-  }
-
-  toggleSelection(id) {
-    const page = this.getPage(id);
-    if (page) {
-      page.selected = !page.selected;
-    }
-  }
-
-  selectAll(selected) {
-    this.pages.forEach(p => p.selected = selected);
-  }
-
-  getSelectedPages() {
-    return this.pages.filter(p => p.selected);
-  }
-
-  getAllPages() {
-    return this.pages;
-  }
-
-  reorderPages(oldIndex, newIndex) {
-    const [movedPage] = this.pages.splice(oldIndex, 1);
-    this.pages.splice(newIndex, 0, movedPage);
-  }
-}
-
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-const pageManager = new PDFPageManager();
 
 const mainContent = document.getElementById("main-content");
 const uploadZone = document.getElementById("upload-zone");
@@ -217,7 +151,7 @@ window.addEventListener("resize", () => {
   if (!AppData.temp.currentPreviewPageId) return;
   clearTimeout(AppData.temp.resizeTimer);
   AppData.temp.resizeTimer = setTimeout(() => {
-    const page = pageManager.getPage(AppData.temp.currentPreviewPageId);
+    const page = PDFManager.getPage(AppData.temp.currentPreviewPageId);
     if (page) renderPreviewPage(page);
   }, 150);
 });
@@ -303,7 +237,7 @@ async function processFilesNow(files) {
 
   files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
 
-  const isFirstUpload = pageManager.getAllPages().length === 0;
+  const isFirstUpload = PDFManager.getAllPages().length === 0;
   if (isFirstUpload) {
     outputFilename.value = files[0].name.replace(/\.pdf$/i, "");
   }
@@ -317,8 +251,8 @@ async function processFilesNow(files) {
 
   try {
     for (const file of files) {
-      const fileIndex = pageManager.originalFiles.length;
-      pageManager.originalFiles.push(file);
+      const fileIndex = PDFManager.originalFiles.length;
+      PDFManager.originalFiles.push(file);
       await loadPDF(file, fileIndex);
     }
   } finally {
@@ -336,7 +270,7 @@ async function loadPDF(file, fileIndex) {
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
 
-      const pageObj = pageManager.addPage({
+      const pageObj = PDFManager.addPage({
         pdfPage: page,
         originalPageNum: pageNum,
         rotation: 0,
@@ -379,7 +313,7 @@ async function addPageToGrid(pageObj) {
   pageDiv.draggable = true;
   pageDiv.classList.toggle("selected", pageObj.selected);
 
-  const currentIndex = pageManager.pages.findIndex(p => p.id === pageObj.id);
+  const currentIndex = PDFManager.pages.findIndex(p => p.id === pageObj.id);
 
   const container = document.createElement("div");
   container.className = "relative";
@@ -448,22 +382,22 @@ async function addPageToGrid(pageObj) {
   checkbox.addEventListener("change", (e) => {
     e.stopPropagation();
     if (AppData.data.fileView) {
-      const page = pageManager.getPage(pageObj.id);
-      pageManager.getAllPages()
+      const page = PDFManager.getPage(pageObj.id);
+      PDFManager.getAllPages()
         .filter(p => p.fileIndex === page.fileIndex)
         .forEach(p => { p.selected = e.target.checked; });
       syncSelectionUI();
     } else {
-      pageManager.toggleSelection(pageObj.id);
-      pageDiv.classList.toggle("selected", pageManager.getPage(pageObj.id).selected);
+      PDFManager.toggleSelection(pageObj.id);
+      pageDiv.classList.toggle("selected", PDFManager.getPage(pageObj.id).selected);
     }
     updateStats();
   });
 
   rotateBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
-    pageManager.rotatePage(pageObj.id, 90);
-    const page = pageManager.getPage(pageObj.id);
+    PDFManager.rotatePage(pageObj.id, 90);
+    const page = PDFManager.getPage(pageObj.id);
     const newCanvas = await renderPage(page.pdfPage, page.rotation);
     canvasWrapper.innerHTML = "";
     canvasWrapper.appendChild(newCanvas);
@@ -473,17 +407,17 @@ async function addPageToGrid(pageObj) {
     e.stopPropagation();
 
     if (AppData.data.fileView) {
-      const page = pageManager.getPage(pageObj.id);
-      const filePages = pageManager.getAllPages().filter(p => p.fileIndex === page.fileIndex);
+      const page = PDFManager.getPage(pageObj.id);
+      const filePages = PDFManager.getAllPages().filter(p => p.fileIndex === page.fileIndex);
       const pageLabel = filePages.length === 1 ? "1 page" : `all ${filePages.length} pages`;
       if (!confirm(`Delete ${pageLabel} of "${page.fileName}"?`)) return;
 
       for (const p of filePages) {
-        pageManager.removePage(p.id);
+        PDFManager.removePage(p.id);
         document.querySelector(`[data-page-id="${p.id}"]`)?.remove();
       }
     } else {
-      pageManager.removePage(pageObj.id);
+      PDFManager.removePage(pageObj.id);
       pageDiv.remove();
     }
 
@@ -561,7 +495,7 @@ function handleDrop(e) {
     if (AppData.data.fileView) {
       moveFileGroup(draggedId, plan.targetId, plan.after);
     } else {
-      pageManager.reorderPages(plan.fromIndex, plan.toIndex);
+      PDFManager.reorderPages(plan.fromIndex, plan.toIndex);
       if (plan.after) target.after(card);
       else target.before(card);
     }
@@ -610,7 +544,7 @@ function updateDropTarget() {
   }
 
   const after = x > best.x + best.w / 2;
-  const pages = AppData.data.fileView ? representativePages() : pageManager.getAllPages();
+  const pages = AppData.data.fileView ? representativePages() : PDFManager.getAllPages();
   const fromIndex = pages.findIndex(p => p.id === AppData.temp.draggedPageId);
   let toIndex = pages.findIndex(p => p.id === best.id) + (after ? 1 : 0);
   if (fromIndex < toIndex) toIndex--;
@@ -684,7 +618,7 @@ function animateReorder(mutate) {
 
 function representativePages() {
   const seen = new Set();
-  return pageManager.getAllPages().filter(p => {
+  return PDFManager.getAllPages().filter(p => {
     if (seen.has(p.fileIndex)) return false;
     seen.add(p.fileIndex);
     return true;
@@ -692,12 +626,12 @@ function representativePages() {
 }
 
 function applyView() {
-  const pages = pageManager.getAllPages();
+  const pages = PDFManager.getAllPages();
   const reps = new Set(representativePages().map(p => p.id));
 
   pagesGrid.querySelectorAll(".pdf-page").forEach(el => {
     const id = Number(el.dataset.pageId);
-    const page = pageManager.getPage(id);
+    const page = PDFManager.getPage(id);
     if (!page) return;
 
     el.classList.toggle("hidden", AppData.data.fileView && !reps.has(id));
@@ -715,10 +649,10 @@ function applyView() {
 }
 
 function syncSelectionUI() {
-  const pages = pageManager.getAllPages();
+  const pages = PDFManager.getAllPages();
 
   pagesGrid.querySelectorAll(".pdf-page").forEach(el => {
-    const page = pageManager.getPage(Number(el.dataset.pageId));
+    const page = PDFManager.getPage(Number(el.dataset.pageId));
     if (!page) return;
 
     const cb = el.querySelector(".page-checkbox");
@@ -750,9 +684,9 @@ function createFileNameEl(card, name) {
 }
 
 function moveFileGroup(draggedId, targetId, after) {
-  const pages = pageManager.pages;
-  const dragFile = pageManager.getPage(draggedId).fileIndex;
-  const targetFile = pageManager.getPage(targetId).fileIndex;
+  const pages = PDFManager.pages;
+  const dragFile = PDFManager.getPage(draggedId).fileIndex;
+  const targetFile = PDFManager.getPage(targetId).fileIndex;
 
   const moving = pages.filter(p => p.fileIndex === dragFile);
   const rest = pages.filter(p => p.fileIndex !== dragFile);
@@ -766,7 +700,7 @@ function moveFileGroup(draggedId, targetId, after) {
     at = rest.findIndex(p => p.fileIndex === targetFile);
   }
   rest.splice(at, 0, ...moving);
-  pageManager.pages = rest;
+  PDFManager.pages = rest;
 
   rest.forEach(p => {
     const el = pagesGrid.querySelector(`[data-page-id="${p.id}"]`);
@@ -779,7 +713,7 @@ function updatePageNumbers() {
 }
 
 function handleSelectAll(e) {
-  pageManager.selectAll(e.target.checked);
+  PDFManager.selectAll(e.target.checked);
   document.querySelectorAll(".page-checkbox").forEach(cb => {
     cb.checked = e.target.checked;
   });
@@ -791,14 +725,14 @@ function handleSelectAll(e) {
 }
 
 function handleDeleteSelected() {
-  const selected = pageManager.getSelectedPages();
+  const selected = PDFManager.getSelectedPages();
   if (selected.length === 0) return;
 
   const label = selected.length === 1 ? "1 selected page" : `${selected.length} selected pages`;
   if (!confirm(`Delete ${label}?`)) return;
 
   for (const page of selected) {
-    pageManager.removePage(page.id);
+    PDFManager.removePage(page.id);
     document.querySelector(`[data-page-id="${page.id}"]`)?.remove();
   }
 
@@ -808,7 +742,7 @@ function handleDeleteSelected() {
 
 function handleDeleteLastPages() {
   const lastByFile = new Map();
-  for (const page of pageManager.getSelectedPages()) lastByFile.set(page.fileIndex, page);
+  for (const page of PDFManager.getSelectedPages()) lastByFile.set(page.fileIndex, page);
   const targets = [...lastByFile.values()];
   if (targets.length === 0) return;
 
@@ -816,7 +750,7 @@ function handleDeleteLastPages() {
   if (!confirm(`Delete ${label}?`)) return;
 
   for (const page of targets) {
-    pageManager.removePage(page.id);
+    PDFManager.removePage(page.id);
     document.querySelector(`[data-page-id="${page.id}"]`)?.remove();
   }
 
@@ -825,9 +759,9 @@ function handleDeleteLastPages() {
 }
 
 function updateStats() {
-  const pages = pageManager.getAllPages();
+  const pages = PDFManager.getAllPages();
   const total = pages.length;
-  const selected = pageManager.getSelectedPages().length;
+  const selected = PDFManager.getSelectedPages().length;
 
   if (AppData.data.fileView) {
     totalPagesSpan.textContent = new Set(pages.map(p => p.fileIndex)).size;
@@ -850,7 +784,7 @@ async function loadSourcePdfs(pages) {
   const uniqueFileIndices = [...new Set(pages.map(p => p.fileIndex))];
 
   for (const fileIndex of uniqueFileIndices) {
-    const arrayBuffer = await pageManager.originalFiles[fileIndex].arrayBuffer();
+    const arrayBuffer = await PDFManager.originalFiles[fileIndex].arrayBuffer();
     loadedPdfs.set(fileIndex, await PDFLib.PDFDocument.load(arrayBuffer));
   }
 
@@ -868,7 +802,7 @@ async function copyPageInto(targetPdf, sourcePdfs, page) {
 }
 
 function openExportModal() {
-  const count = pageManager.getSelectedPages().length;
+  const count = PDFManager.getSelectedPages().length;
   if (count === 0) return;
 
   if (AppData.data.fileView) {
@@ -982,7 +916,7 @@ function handleExportConfirm() {
 }
 
 async function handleMerge() {
-  const pagesToMerge = pageManager.getSelectedPages();
+  const pagesToMerge = PDFManager.getSelectedPages();
   if (pagesToMerge.length === 0) return;
 
   AppData.temp.busy = true;
@@ -1013,7 +947,7 @@ async function handleMerge() {
 }
 
 async function handleSeparatePages() {
-  const pagesToSeparate = pageManager.getSelectedPages();
+  const pagesToSeparate = PDFManager.getSelectedPages();
   if (pagesToSeparate.length === 0) return;
 
   AppData.temp.busy = true;
@@ -1022,7 +956,7 @@ async function handleSeparatePages() {
   try {
     const loadedPdfs = await loadSourcePdfs(pagesToSeparate);
     const filename = exportBaseName();
-    const allPages = pageManager.getAllPages();
+    const allPages = PDFManager.getAllPages();
 
     if (pagesToSeparate.length === 1) {
       const page = pagesToSeparate[0];
@@ -1065,7 +999,7 @@ async function handleSeparatePages() {
 }
 
 function selectedFileOrder() {
-  const selectedFiles = new Set(pageManager.getSelectedPages().map(p => p.fileIndex));
+  const selectedFiles = new Set(PDFManager.getSelectedPages().map(p => p.fileIndex));
   return representativePages()
     .map(p => p.fileIndex)
     .filter(fileIndex => selectedFiles.has(fileIndex));
@@ -1079,7 +1013,7 @@ async function handleMergeInPairs() {
   }
 
   const half = order.length / 2;
-  const selected = pageManager.getSelectedPages();
+  const selected = PDFManager.getSelectedPages();
   const pagesOf = fileIndex => selected.filter(p => p.fileIndex === fileIndex);
 
   AppData.temp.busy = true;
@@ -1092,8 +1026,8 @@ async function handleMergeInPairs() {
     for (let i = 0; i < half; i++) {
       const firstIndex = order[i];
       const secondIndex = order[i + half];
-      const firstName = pageManager.originalFiles[firstIndex].name;
-      const secondName = pageManager.originalFiles[secondIndex].name;
+      const firstName = PDFManager.originalFiles[firstIndex].name;
+      const secondName = PDFManager.originalFiles[secondIndex].name;
 
       try {
         const outPdf = await PDFLib.PDFDocument.create();
@@ -1129,7 +1063,7 @@ async function handleMergeInPairs() {
 }
 
 async function handleSeparateFiles() {
-  const selected = pageManager.getSelectedPages();
+  const selected = PDFManager.getSelectedPages();
   if (selected.length === 0) return;
 
   const groups = new Map();
@@ -1147,7 +1081,7 @@ async function handleSeparateFiles() {
     let seq = 0;
 
     for (const [fileIndex, pages] of groups) {
-      const fileName = pageManager.originalFiles[fileIndex].name;
+      const fileName = PDFManager.originalFiles[fileIndex].name;
       try {
         const outPdf = await PDFLib.PDFDocument.create();
         for (const page of pages) {
@@ -1182,7 +1116,7 @@ async function handleSeparateFiles() {
 }
 
 async function handleExtractEdgePages(which) {
-  const selected = pageManager.getSelectedPages();
+  const selected = PDFManager.getSelectedPages();
   if (selected.length === 0) return;
 
   const separate = separateCheckbox.checked;
@@ -1293,8 +1227,8 @@ function getExtractRequest() {
   const wanted = numbers ? new Set(numbers) : null;
   const has = n => (wanted ? wanted.has(n) : n >= rangeFrom && n <= rangeTo);
 
-  const all = pageManager.getAllPages();
-  const selected = pageManager.getSelectedPages();
+  const all = PDFManager.getAllPages();
+  const selected = PDFManager.getSelectedPages();
 
   if (AppData.data.fileView) {
     const groups = [];
@@ -1344,7 +1278,7 @@ function updateExtractValidity() {
 
   if (show) target.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
-  exportConfirmBtn.disabled = AppData.temp.busy || pageManager.getSelectedPages().length === 0 || !!AppData.temp.extractError;
+  exportConfirmBtn.disabled = AppData.temp.busy || PDFManager.getSelectedPages().length === 0 || !!AppData.temp.extractError;
 }
 
 async function handleExtractSpecific() {
@@ -1423,7 +1357,7 @@ function downloadFile(data, filename, mimeType) {
 }
 
 async function openPreviewModal(pageId) {
-  const page = pageManager.getPage(pageId);
+  const page = PDFManager.getPage(pageId);
   if (!page) return;
 
   AppData.temp.currentPreviewPageId = pageId;
@@ -1446,7 +1380,7 @@ function closePreviewModal() {
 }
 
 function setPreviewZoom(z) {
-  const page = pageManager.getPage(AppData.temp.currentPreviewPageId);
+  const page = PDFManager.getPage(AppData.temp.currentPreviewPageId);
   if (!page) return;
   const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
   if (Math.abs(next - AppData.temp.previewZoom) < 0.001) return;
@@ -1529,9 +1463,9 @@ async function renderPreviewTextLayer(page, container, scale, token) {
 }
 
 function previewScopePages(pageId = AppData.temp.currentPreviewPageId) {
-  const all = pageManager.getAllPages();
+  const all = PDFManager.getAllPages();
   if (!AppData.data.fileView) return all;
-  const page = pageManager.getPage(pageId);
+  const page = PDFManager.getPage(pageId);
   return page ? all.filter(p => p.fileIndex === page.fileIndex) : all;
 }
 
@@ -1569,12 +1503,12 @@ function updateNavigationButtons() {
 }
 
 function openPreviewInNewTab() {
-  const page = pageManager.getPage(AppData.temp.currentPreviewPageId);
+  const page = PDFManager.getPage(AppData.temp.currentPreviewPageId);
   if (!page) return;
 
   let url = AppData.temp.sourceUrls.get(page.fileIndex);
   if (!url) {
-    url = URL.createObjectURL(pageManager.originalFiles[page.fileIndex]);
+    url = URL.createObjectURL(PDFManager.originalFiles[page.fileIndex]);
     AppData.temp.sourceUrls.set(page.fileIndex, url);
   }
 
@@ -1591,7 +1525,7 @@ function deletePreviewPage() {
   const removedId = AppData.temp.currentPreviewPageId;
   const nextPageObj = allPages[index + 1] || allPages[index - 1] || null;
 
-  pageManager.removePage(removedId);
+  PDFManager.removePage(removedId);
   document.querySelector(`[data-page-id="${removedId}"]`)?.remove();
   updatePageNumbers();
   updateStats();
@@ -1606,10 +1540,10 @@ function deletePreviewPage() {
 async function rotatePreviewPage() {
   if (!AppData.temp.currentPreviewPageId) return;
 
-  const page = pageManager.getPage(AppData.temp.currentPreviewPageId);
+  const page = PDFManager.getPage(AppData.temp.currentPreviewPageId);
   if (!page) return;
 
-  pageManager.rotatePage(AppData.temp.currentPreviewPageId, 90);
+  PDFManager.rotatePage(AppData.temp.currentPreviewPageId, 90);
 
   await renderPreviewPage(page);
 
