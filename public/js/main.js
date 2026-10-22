@@ -127,6 +127,7 @@ viewToggle.addEventListener('click', (e) => {
     b.setAttribute('aria-pressed', String(b === btn));
   });
   applyView();
+  updateStats();
 });
 
 exportBtn.addEventListener('click', openExportModal);
@@ -1012,11 +1013,19 @@ function handleDeleteSelected() {
 }
 
 function updateStats() {
-  const total = pageManager.getAllPages().length;
+  const pages = pageManager.getAllPages();
+  const total = pages.length;
   const selected = pageManager.getSelectedPages().length;
 
-  totalPagesSpan.textContent = total;
-  selectedPagesSpan.textContent = selected;
+  // The counter shows files in Files view and pages in Pages view.
+  // This is display only: the page selection underneath is unchanged.
+  if (fileView) {
+    totalPagesSpan.textContent = new Set(pages.map(p => p.fileIndex)).size;
+    selectedPagesSpan.textContent = new Set(pages.filter(p => p.selected).map(p => p.fileIndex)).size;
+  } else {
+    totalPagesSpan.textContent = total;
+    selectedPagesSpan.textContent = selected;
+  }
   selectAllCheckbox.checked = total > 0 && selected === total;
   selectAllCheckbox.indeterminate = selected > 0 && selected < total;
 
