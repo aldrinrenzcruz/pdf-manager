@@ -1081,7 +1081,6 @@ async function handleMergeInPairs() {
   try {
     const loadedPdfs = await loadSourcePdfs(selected);
     const results = [];
-    const usedNames = new Set();
 
     for (let i = 0; i < half; i++) {
       const firstIndex = order[i];
@@ -1096,11 +1095,9 @@ async function handleMergeInPairs() {
         }
         const bytes = await outPdf.save();
 
-        // Named after the first file of the pair
-        const base = firstName.replace(/\.pdf$/i, '');
-        let name = `${base}_merged.pdf`;
-        for (let n = 2; usedNames.has(name); n++) name = `${base}_merged (${n}).pdf`;
-        usedNames.add(name);
+        // Named after the filename box plus the pair number (01, 02, ...)
+        const num = String(i + 1).padStart(Math.max(2, String(half).length), '0');
+        const name = `${outputFilename.value.trim() || 'merged'}-${num}.pdf`;
         results.push({ name, bytes });
       } catch (pairError) {
         throw new Error(`Failed on "${firstName}" + "${secondName}": ${pairError.message}`);
