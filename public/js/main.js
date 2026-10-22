@@ -74,11 +74,16 @@ const addPdfsBtn = document.getElementById('addPdfsBtn');
 const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 const selectAllContainer = document.getElementById('selectAllContainer');
-const mergeBtn = document.getElementById('mergeBtn');
-const extractBtn = document.getElementById('extractBtn');
+const exportBtn = document.getElementById('exportBtn');
 const outputFilename = document.getElementById('outputFilename');
 const totalPagesSpan = document.getElementById('totalPages');
 const selectedPagesSpan = document.getElementById('selectedPages');
+
+const exportModal = document.getElementById('exportModal');
+const exportCount = document.getElementById('exportCount');
+const exportCloseBtn = document.getElementById('exportCloseBtn');
+const exportCancelBtn = document.getElementById('exportCancelBtn');
+const exportConfirmBtn = document.getElementById('exportConfirmBtn');
 
 const previewModal = document.getElementById('previewModal');
 const closeModal = document.getElementById('closeModal');
@@ -104,15 +109,26 @@ const ZOOM_STEP = 1.25;
 const MAX_CANVAS_PIXELS = 16000000;
 let previewZoom = 1;
 
-// Both the footer button and the empty-state zone open the same file picker.
+// Both the header button and the empty-state zone open the same file picker.
 // The button lives outside the zone, so one click never triggers both.
 addPdfsBtn.addEventListener('click', openFilePicker);
 uploadZone.addEventListener('click', openFilePicker);
 fileInput.addEventListener('change', handleFileSelect);
 deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
 selectAllCheckbox.addEventListener('change', handleSelectAll);
-mergeBtn.addEventListener('click', handleMerge);
-extractBtn.addEventListener('click', handleExtract);
+
+exportBtn.addEventListener('click', openExportModal);
+exportCloseBtn.addEventListener('click', closeExportModal);
+exportCancelBtn.addEventListener('click', closeExportModal);
+exportConfirmBtn.addEventListener('click', handleExportConfirm);
+
+exportModal.addEventListener('mousedown', (e) => {
+  if (e.target === exportModal) closeExportModal();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !exportModal.classList.contains('hidden')) closeExportModal();
+});
 
 outputFilename.addEventListener('input', () => { userEditedName = true; });
 
@@ -488,7 +504,7 @@ async function renderPage(pdfPage, rotation) {
 
 async function addPageToGrid(pageObj) {
   const pageDiv = document.createElement('div');
-  pageDiv.className = 'pdf-page bg-white rounded-lg shadow-md overflow-hidden cursor-move relative';
+  pageDiv.className = 'pdf-page group relative rounded-2xl bg-gray-100 hover:bg-gray-200/70 p-1.5 cursor-grab active:cursor-grabbing';
   pageDiv.dataset.pageId = pageObj.id;
   pageDiv.draggable = true;
   pageDiv.classList.toggle('selected', pageObj.selected);
@@ -498,19 +514,22 @@ async function addPageToGrid(pageObj) {
   const container = document.createElement('div');
   container.className = 'relative';
 
-  const pageNumberBadge = document.createElement('div');
-  pageNumberBadge.className = 'page-number-badge absolute top-2 left-2 z-10';
-  pageNumberBadge.textContent = currentIndex + 1;
-
   const checkboxContainer = document.createElement('div');
-  checkboxContainer.className = 'absolute top-2 right-2 z-10';
+  checkboxContainer.className = 'absolute top-3 right-3 z-10';
   checkboxContainer.innerHTML = `
-    <input type="checkbox" class="page-checkbox w-5 h-5 text-blue-600 rounded cursor-pointer"
-        ${pageObj.selected ? 'checked' : ''}>
+    <label class="relative block w-6 h-6 cursor-pointer">
+      <input type="checkbox" class="page-checkbox peer sr-only" ${pageObj.selected ? 'checked' : ''}>
+      <span class="w-6 h-6 rounded-full border-2 border-gray-300 bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-white text-sm transition-colors
+                   peer-checked:bg-gray-900 peer-checked:border-gray-900
+                   peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
+                   peer-checked:[&>i]:opacity-100">
+        <i class="bi bi-check-lg opacity-0 transition-opacity"></i>
+      </span>
+    </label>
   `;
 
   const canvasContainer = document.createElement('div');
-  canvasContainer.className = 'p-2 flex items-center justify-center bg-gray-100 cursor-pointer';
+  canvasContainer.className = 'p-2 flex items-center justify-center rounded-xl cursor-pointer';
   canvasContainer.style.minHeight = '120px';
 
   canvasContainer.addEventListener('click', (e) => {
@@ -527,21 +546,28 @@ async function addPageToGrid(pageObj) {
   canvasContainer.appendChild(canvasWrapper);
 
   const bottomControls = document.createElement('div');
-  bottomControls.className = 'page-controls absolute bottom-2 left-2 right-2 flex items-center justify-center gap-2';
+  bottomControls.className = 'page-controls absolute bottom-3 left-3 right-3 z-10 flex items-center justify-center gap-2';
   bottomControls.innerHTML = `
-    <button class="rotate-btn bg-white hover:bg-gray-100 p-2 rounded-full shadow text-gray-700 w-8 h-8 flex items-center justify-center transition-colors">
-        <i class="bi bi-arrow-clockwise"></i>
+    <button type="button" title="Rotate" aria-label="Rotate page"
+      class="rotate-btn w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-md text-gray-700 hover:bg-white hover:text-gray-900 flex items-center justify-center transition-colors">
+      <i class="bi bi-arrow-clockwise"></i>
     </button>
-    <button class="delete-btn bg-red-500 hover:bg-red-600 p-2 rounded-full shadow text-white w-8 h-8 flex items-center justify-center transition-colors">
-        <i class="bi bi-trash"></i>
+    <button type="button" title="Delete" aria-label="Delete page"
+      class="delete-btn w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-md text-gray-700 hover:bg-white hover:text-red-600 flex items-center justify-center transition-colors">
+      <i class="bi bi-trash"></i>
     </button>
   `;
 
-  container.appendChild(pageNumberBadge);
   container.appendChild(checkboxContainer);
   container.appendChild(canvasContainer);
   container.appendChild(bottomControls);
+
+  const pageNumberBadge = document.createElement('div');
+  pageNumberBadge.className = 'page-number-badge pt-1 pb-1.5 text-center text-xs font-medium text-gray-500 tabular-nums';
+  pageNumberBadge.textContent = currentIndex + 1;
+
   pageDiv.appendChild(container);
+  pageDiv.appendChild(pageNumberBadge);
 
   const checkbox = pageDiv.querySelector('.page-checkbox');
   const rotateBtn = pageDiv.querySelector('.rotate-btn');
@@ -659,9 +685,10 @@ function updateStats() {
   totalPagesSpan.textContent = total;
   selectedPagesSpan.textContent = selected;
   selectAllCheckbox.checked = total > 0 && selected === total;
+  selectAllCheckbox.indeterminate = selected > 0 && selected < total;
 
-  mergeBtn.disabled = busy || selected === 0;
-  extractBtn.disabled = busy || selected === 0;
+  exportBtn.disabled = busy || selected === 0;
+  exportConfirmBtn.disabled = busy || selected === 0;
   deleteSelectedBtn.disabled = busy || selected === 0;
 }
 
@@ -685,6 +712,30 @@ async function copyPageInto(targetPdf, sourcePdfs, page) {
   }
 
   targetPdf.addPage(copiedPage);
+}
+
+function openExportModal() {
+  const count = pageManager.getSelectedPages().length;
+  if (count === 0) return;
+
+  exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
+  exportModal.classList.remove('hidden');
+  exportConfirmBtn.focus();
+}
+
+function closeExportModal() {
+  exportModal.classList.add('hidden');
+}
+
+function handleExportConfirm() {
+  const mode = document.querySelector('input[name="exportMode"]:checked').value;
+  closeExportModal();
+
+  if (mode === 'split') {
+    handleExtract();
+  } else {
+    handleMerge();
+  }
 }
 
 async function handleMerge() {

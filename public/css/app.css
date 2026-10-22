@@ -214,3 +214,36 @@
     right: calc(6px + var(--sbw, 0px));
   }
 }
+
+/* PDF page cards */
+.pdf-page {
+  box-shadow: 0 0 0 2px transparent;
+  transition:
+    box-shadow 0.15s ease,
+    background-color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.pdf-page.selected {
+  box-shadow: 0 0 0 2px #d1d5db;
+}
+
+.pdf-page.dragging {
+  opacity: 0.4;
+  transform: scale(0.97);
+}
+
+.pdf-page canvas {
+  border-radius: 6px;
+  background: #fff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  transition: opacity 0.15s ease;
+}
+
+/* Unselected pages fade slightly so it's clear they won't be exported */
+.pdf-page:not(.selected) canvas {
+  opacity: 0.55;
+}
