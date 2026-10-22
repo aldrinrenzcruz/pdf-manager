@@ -129,10 +129,11 @@ const ZOOM_STEP = 1.25;
 const MAX_CANVAS_PIXELS = 16000000;
 let previewZoom = 1;
 
-// Both the header button and the empty-state zone open the same file picker.
-// The button lives outside the zone, so one click never triggers both.
+// Both the header button and the empty-state box open the same file picker.
+// The whole page area (uploadZone) accepts dropped files, but only the box in the
+// middle (uploadBox) is clickable, so a stray click elsewhere does nothing.
 addPdfsBtn.addEventListener('click', openFilePicker);
-uploadZone.addEventListener('click', openFilePicker);
+document.getElementById('uploadBox').addEventListener('click', openFilePicker);
 fileInput.addEventListener('change', handleFileSelect);
 deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
 deleteLastPagesBtn.addEventListener('click', handleDeleteLastPages);
@@ -283,7 +284,9 @@ uploadZone.addEventListener('dragover', (e) => {
   uploadZone.classList.add('drag-over');
 });
 
-uploadZone.addEventListener('dragleave', () => {
+uploadZone.addEventListener('dragleave', (e) => {
+  // Moving onto the box inside the zone also fires dragleave; ignore that so the highlight doesn't flicker
+  if (e.relatedTarget && uploadZone.contains(e.relatedTarget)) return;
   uploadZone.classList.remove('drag-over');
 });
 
