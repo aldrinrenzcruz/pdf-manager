@@ -71,6 +71,7 @@ const pagesGrid = document.getElementById('pagesGrid');
 const fileInput = document.getElementById('fileInput');
 const addPdfsBtn = document.getElementById('addPdfsBtn');
 const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+const deleteLastPagesBtn = document.getElementById('deleteLastPagesBtn');
 const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 const selectAllContainer = document.getElementById('selectAllContainer');
 const exportBtn = document.getElementById('exportBtn');
@@ -117,6 +118,7 @@ addPdfsBtn.addEventListener('click', openFilePicker);
 uploadZone.addEventListener('click', openFilePicker);
 fileInput.addEventListener('change', handleFileSelect);
 deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
+deleteLastPagesBtn.addEventListener('click', handleDeleteLastPages);
 selectAllCheckbox.addEventListener('change', handleSelectAll);
 
 viewToggle.addEventListener('click', (e) => {
@@ -1012,6 +1014,27 @@ function handleDeleteSelected() {
   updateStats();
 }
 
+// Delete the last page of each file that has selected pages (works in both views).
+// "Last page" = the last selected page of that file in the current order.
+// A single-page file is removed entirely.
+function handleDeleteLastPages() {
+  const lastByFile = new Map();
+  for (const page of pageManager.getSelectedPages()) lastByFile.set(page.fileIndex, page);
+  const targets = [...lastByFile.values()];
+  if (targets.length === 0) return;
+
+  const label = targets.length === 1 ? 'the last page of 1 selected file' : `the last page of ${targets.length} selected files`;
+  if (!confirm(`Delete ${label}?`)) return;
+
+  for (const page of targets) {
+    pageManager.removePage(page.id);
+    document.querySelector(`[data-page-id="${page.id}"]`)?.remove();
+  }
+
+  updatePageNumbers();
+  updateStats();
+}
+
 function updateStats() {
   const pages = pageManager.getAllPages();
   const total = pages.length;
@@ -1032,6 +1055,7 @@ function updateStats() {
   exportBtn.disabled = busy || selected === 0;
   exportConfirmBtn.disabled = busy || selected === 0;
   deleteSelectedBtn.disabled = busy || selected === 0;
+  deleteLastPagesBtn.disabled = busy || selected === 0;
 }
 
 async function loadSourcePdfs(pages) {

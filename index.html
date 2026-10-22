@@ -43,12 +43,6 @@
           class="w-64 h-8 px-3 text-sm font-medium text-center text-gray-900 placeholder-gray-400 bg-transparent border-0 rounded-lg hover:bg-gray-100 focus:bg-gray-100 focus:outline-none focus:ring-0">
 
         <div class="flex items-center justify-end gap-2">
-          <button id="deleteSelectedBtn" disabled title="Delete selected pages"
-            class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
-            <i class="bi bi-trash"></i>
-            Delete
-          </button>
-
           <button id="addPdfsBtn" type="button" title="Import PDFs"
             class="text-gray-700 hover:bg-gray-100 h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
             <i class="bi bi-box-arrow-in-down"></i>
@@ -67,7 +61,7 @@
 
     <!-- Toolbar (shown once pages are loaded) -->
     <div id="selectAllContainer"
-      class="hidden flex items-center justify-between gap-3 bg-white border-b border-gray-200 px-4 py-1">
+      class="hidden grid grid-cols-[1fr_auto_1fr] items-center gap-3 bg-white border-b border-gray-200 px-4 py-1">
       <!-- Left: selection -->
       <div class="flex items-center gap-2">
         <label title="Select all pages"
@@ -86,8 +80,22 @@
         </label>
       </div>
 
-      <!-- Right: future actions go here -->
-      <div id="toolbarActions" class="flex items-center gap-2">
+      <!-- Center: delete -->
+      <div class="flex items-center justify-center gap-2">
+        <button id="deleteSelectedBtn" disabled title="Delete selected pages"
+          class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
+          <i class="bi bi-trash"></i>
+          Delete
+        </button>
+        <button id="deleteLastPagesBtn" disabled title="Delete the last page of each selected file"
+          class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
+          <i class="bi bi-file-earmark-minus"></i>
+          Delete last pages
+        </button>
+      </div>
+
+      <!-- Right: view toggle -->
+      <div id="toolbarActions" class="flex items-center justify-end gap-2">
         <div id="viewToggle" role="group" aria-label="View mode"
           class="flex items-center p-0.5 bg-gray-100 rounded-full text-sm font-medium">
           <button type="button" data-view="pages" aria-pressed="true" title="Show every page"
