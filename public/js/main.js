@@ -1084,7 +1084,13 @@ function openExportModal() {
   const count = pageManager.getSelectedPages().length;
   if (count === 0) return;
 
-  exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
+  // Files view counts files; Pages view counts pages
+  if (fileView) {
+    const fileCount = selectedFileOrder().length;
+    exportCount.textContent = fileCount === 1 ? '1 file' : `${fileCount} files`;
+  } else {
+    exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
+  }
 
   // Merge and Save separately are shown in both views, worded for the current one.
   // Trim last page is file-level, so it's only offered in Files view.
