@@ -1052,6 +1052,13 @@ function openExportModal() {
   if (count === 0) return;
 
   exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
+
+  // Separate is a page-level export, so it's not offered in Files view
+  document.getElementById('separateOption').classList.toggle('hidden', fileView);
+  if (fileView) {
+    document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
+  }
+
   exportModal.classList.remove('hidden');
   exportConfirmBtn.focus();
 }
@@ -1064,8 +1071,8 @@ function handleExportConfirm() {
   const mode = document.querySelector('input[name="exportMode"]:checked').value;
   closeExportModal();
 
-  if (mode === 'split') {
-    handleExtract();
+  if (mode === 'separate') {
+    handleSeparate();
   } else {
     handleMerge();
   }
@@ -1102,20 +1109,20 @@ async function handleMerge() {
   }
 }
 
-async function handleExtract() {
-  const pagesToSplit = pageManager.getSelectedPages();
-  if (pagesToSplit.length === 0) return;
+async function handleSeparate() {
+  const pagesToSeparate = pageManager.getSelectedPages();
+  if (pagesToSeparate.length === 0) return;
 
   busy = true;
   updateStats();
 
   try {
-    const loadedPdfs = await loadSourcePdfs(pagesToSplit);
-    const filename = outputFilename.value.trim() || 'split-pages';
+    const loadedPdfs = await loadSourcePdfs(pagesToSeparate);
+    const filename = outputFilename.value.trim() || 'separated-pages';
     const allPages = pageManager.getAllPages();
 
-    if (pagesToSplit.length === 1) {
-      const page = pagesToSplit[0];
+    if (pagesToSeparate.length === 1) {
+      const page = pagesToSeparate[0];
       const singlePdf = await PDFLib.PDFDocument.create();
       await copyPageInto(singlePdf, loadedPdfs, page);
 
@@ -1125,8 +1132,8 @@ async function handleExtract() {
     } else {
       const zip = new JSZip();
 
-      for (let i = 0; i < pagesToSplit.length; i++) {
-        const page = pagesToSplit[i];
+      for (let i = 0; i < pagesToSeparate.length; i++) {
+        const page = pagesToSeparate[i];
 
         try {
           const singlePdf = await PDFLib.PDFDocument.create();
@@ -1141,11 +1148,11 @@ async function handleExtract() {
       }
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, `${filename}_split.zip`, 'application/zip');
+      downloadFile(zipBlob, `${filename}_separated.zip`, 'application/zip');
     }
   } catch (error) {
-    console.error('Split failed:', error);
-    alert(`Error splitting PDF: ${error.message}\n\nCheck console for details.`);
+    console.error('Separate failed:', error);
+    alert(`Error separating pages: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
     updateStats();
