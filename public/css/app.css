@@ -243,7 +243,26 @@
   transition: opacity 0.15s ease;
 }
 
-/* Unselected pages fade slightly so it's clear they won't be exported */
 .pdf-page:not(.selected) canvas {
   opacity: 0.55;
+}
+
+.pdf-page {
+  -webkit-user-drag: element;
+}
+
+.drop-indicator {
+  position: absolute;
+  width: 4px;
+  border-radius: 9999px;
+  background: #111827;
+  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 15;
+  transition: opacity 0.12s ease;
+}
+
+.drop-indicator.visible {
+  opacity: 1;
 }

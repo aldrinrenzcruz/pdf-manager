@@ -62,11 +62,10 @@ class PDFPageManager {
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const pageManager = new PDFPageManager();
-let draggedElement = null;
-let draggedIndex = null;
 let busy = false;
 let loadQueue = Promise.resolve();
 
+const mainContent = document.getElementById('mainContent');
 const uploadZone = document.getElementById('uploadZone');
 const pagesGrid = document.getElementById('pagesGrid');
 const fileInput = document.getElementById('fileInput');
@@ -604,49 +603,204 @@ async function addPageToGrid(pageObj) {
     updateStats();
   });
 
+  // Dragover and drop are handled on the scroll area (see "Drag to reorder")
   pageDiv.addEventListener('dragstart', handleDragStart);
-  pageDiv.addEventListener('dragover', handleDragOver);
-  pageDiv.addEventListener('drop', handleDrop);
   pageDiv.addEventListener('dragend', handleDragEnd);
 
   const gridContainer = pagesGrid.querySelector('[class*="grid-cols"]') || pagesGrid;
   gridContainer.appendChild(pageDiv);
 }
 
+// ---------- Drag to reorder ----------
+let draggedPageId = null;
+let dragCache = [];       // card geometry, measured once per drag
+let dragGap = 16;
+let dragPlan = null;      // { targetId, after, fromIndex, toIndex } or null
+let dragPointer = { x: 0, y: 0 };
+let autoScrollRaf = null;
+
+const dropIndicator = document.createElement('div');
+dropIndicator.className = 'drop-indicator';
+pagesGrid.appendChild(dropIndicator);
+
+mainContent.addEventListener('dragover', handleDragOver);
+mainContent.addEventListener('drop', handleDrop);
+mainContent.addEventListener('dragleave', handleDragLeave);
+
 function handleDragStart(e) {
-  draggedElement = e.currentTarget;
-  const gridContainer = pagesGrid.querySelector('[class*="grid-cols"]') || pagesGrid;
-  draggedIndex = Array.from(gridContainer.children).indexOf(draggedElement);
-  e.currentTarget.classList.add('dragging');
+  const card = e.currentTarget;
+  draggedPageId = Number(card.dataset.pageId);
+  dragPointer = { x: e.clientX, y: e.clientY };
+
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(draggedPageId)); // Firefox needs this
+
+  dragGap = parseFloat(getComputedStyle(pagesGrid).columnGap) || 16;
+  dragCache = Array.from(pagesGrid.querySelectorAll('.pdf-page')).map(el => ({
+    id: Number(el.dataset.pageId),
+    x: el.offsetLeft,
+    y: el.offsetTop,
+    w: el.offsetWidth,
+    h: el.offsetHeight
+  }));
+
+  // Fade the source card after the browser has captured the drag image
+  requestAnimationFrame(() => card.classList.add('dragging'));
+
+  startAutoScroll();
 }
 
 function handleDragOver(e) {
+  if (draggedPageId === null) return; // not a page drag (e.g. files)
   e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  dragPointer = { x: e.clientX, y: e.clientY };
+  updateDropTarget();
 }
 
-function handleDrop(e) {
-  e.preventDefault();
-  const dropTarget = e.currentTarget;
-  const gridContainer = pagesGrid.querySelector('[class*="grid-cols"]') || pagesGrid;
-  const dropIndex = Array.from(gridContainer.children).indexOf(dropTarget);
-
-  if (draggedElement && draggedElement !== dropTarget) {
-    pageManager.reorderPages(draggedIndex, dropIndex);
-
-    if (draggedIndex < dropIndex) {
-      dropTarget.after(draggedElement);
-    } else {
-      dropTarget.before(draggedElement);
-    }
-
-    updatePageNumbers();
+function handleDragLeave(e) {
+  if (draggedPageId === null) return;
+  if (!mainContent.contains(e.relatedTarget)) {
+    dragPlan = null;
+    dropIndicator.classList.remove('visible');
   }
 }
 
-function handleDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
-  draggedElement = null;
-  draggedIndex = null;
+function handleDrop(e) {
+  if (draggedPageId === null) return;
+  e.preventDefault();
+
+  const plan = dragPlan;
+  const card = pagesGrid.querySelector(`[data-page-id="${draggedPageId}"]`);
+  finishDrag();
+  if (!plan || !card) return;
+
+  const target = pagesGrid.querySelector(`[data-page-id="${plan.targetId}"]`);
+  if (!target) return;
+
+  animateReorder(() => {
+    pageManager.reorderPages(plan.fromIndex, plan.toIndex);
+    if (plan.after) target.after(card);
+    else target.before(card);
+  });
+
+  updatePageNumbers();
+}
+
+function handleDragEnd() {
+  finishDrag();
+}
+
+function finishDrag() {
+  draggedPageId = null;
+  dragPlan = null;
+  dragCache = [];
+  dropIndicator.classList.remove('visible');
+  if (autoScrollRaf) {
+    cancelAnimationFrame(autoScrollRaf);
+    autoScrollRaf = null;
+  }
+  pagesGrid.querySelectorAll('.pdf-page.dragging').forEach(el => el.classList.remove('dragging'));
+}
+
+// Find the card nearest the pointer and whether to insert before or after it
+function updateDropTarget() {
+  const grid = pagesGrid.getBoundingClientRect();
+  const x = dragPointer.x - grid.left;
+  const y = dragPointer.y - grid.top;
+
+  let best = null;
+  let bestDist = Infinity;
+  for (const c of dragCache) {
+    const dx = Math.max(c.x - x, 0, x - (c.x + c.w));
+    const dy = Math.max(c.y - y, 0, y - (c.y + c.h));
+    const dist = Math.hypot(dx, dy);
+    if (dist < bestDist) {
+      best = c;
+      bestDist = dist;
+    }
+  }
+
+  if (!best) {
+    dragPlan = null;
+    dropIndicator.classList.remove('visible');
+    return;
+  }
+
+  const after = x > best.x + best.w / 2;
+  const pages = pageManager.getAllPages();
+  const fromIndex = pages.findIndex(p => p.id === draggedPageId);
+  let toIndex = pages.findIndex(p => p.id === best.id) + (after ? 1 : 0);
+  if (fromIndex < toIndex) toIndex--;
+
+  // Dropping where it already is: no indicator, nothing to do
+  if (fromIndex === -1 || toIndex === fromIndex) {
+    dragPlan = null;
+    dropIndicator.classList.remove('visible');
+    return;
+  }
+
+  dragPlan = { targetId: best.id, after, fromIndex, toIndex };
+
+  const left = (after ? best.x + best.w + dragGap / 2 : best.x - dragGap / 2) - 2;
+  dropIndicator.style.left = `${left}px`;
+  dropIndicator.style.top = `${best.y}px`;
+  dropIndicator.style.height = `${best.h}px`;
+  dropIndicator.classList.add('visible');
+}
+
+// Scroll the page area while dragging near its top or bottom edge
+function startAutoScroll() {
+  const zone = 100;
+  const maxSpeed = 18;
+
+  const step = () => {
+    if (draggedPageId === null) {
+      autoScrollRaf = null;
+      return;
+    }
+
+    const rect = mainContent.getBoundingClientRect();
+    let speed = 0;
+    if (dragPointer.y < rect.top + zone) {
+      speed = -maxSpeed * Math.min(1, (rect.top + zone - dragPointer.y) / zone);
+    } else if (dragPointer.y > rect.bottom - zone) {
+      speed = maxSpeed * Math.min(1, (dragPointer.y - (rect.bottom - zone)) / zone);
+    }
+
+    if (speed) {
+      mainContent.scrollTop += speed;
+      updateDropTarget(); // content moved under the pointer
+    }
+
+    autoScrollRaf = requestAnimationFrame(step);
+  };
+
+  autoScrollRaf = requestAnimationFrame(step);
+}
+
+// FLIP animation: cards glide from their old positions to the new ones
+function animateReorder(mutate) {
+  const cards = Array.from(pagesGrid.querySelectorAll('.pdf-page'));
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const first = new Map(cards.map(c => [c, c.getBoundingClientRect()]));
+
+  mutate();
+
+  if (reduceMotion) return;
+
+  for (const c of cards) {
+    const a = first.get(c);
+    const b = c.getBoundingClientRect();
+    const dx = a.left - b.left;
+    const dy = a.top - b.top;
+    if (!dx && !dy) continue;
+
+    c.animate(
+      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+      { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+    );
+  }
 }
 
 function updatePageNumbers() {
