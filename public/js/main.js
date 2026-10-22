@@ -1062,14 +1062,44 @@ function openExportModal() {
 
   exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
 
-  // Separate is page-level (Pages view only); Trim last page is file-level (Files view only)
-  document.getElementById('separateOption').classList.toggle('hidden', fileView);
+  // Merge and Save separately are shown in both views, worded for the current one.
+  // Trim last page is file-level, so it's only offered in Files view.
+  document.getElementById('mergeDesc').textContent = fileView
+    ? 'Combine all pages of the selected files into one PDF'
+    : 'Combine selected pages into one PDF';
+  document.getElementById('separateDesc').textContent = fileView
+    ? 'Save each selected file as its own PDF'
+    : 'Save each selected page as its own PDF';
   document.getElementById('trimLastOption').classList.toggle('hidden', !fileView);
-  document.getElementById('keepFilesOption').classList.toggle('hidden', !fileView);
+
+  // Merge in pairs: Files view only, and only when the selected files pair up evenly
+  const pairOption = document.getElementById('pairMergeOption');
+  const pairInput = document.getElementById('pairMergeInput');
+  const pairDesc = document.getElementById('pairMergeDesc');
+  pairOption.classList.toggle('hidden', !fileView);
+  if (fileView) {
+    const fileCount = selectedFileOrder().length;
+    const half = fileCount / 2;
+    const ok = fileCount >= 2 && fileCount % 2 === 0;
+
+    pairInput.disabled = !ok;
+    pairOption.classList.toggle('opacity-40', !ok);
+    pairOption.classList.toggle('cursor-not-allowed', !ok);
+    pairOption.classList.toggle('cursor-pointer', ok);
+
+    if (ok) {
+      const examples = [];
+      for (let i = 1; i <= Math.min(half, 2); i++) examples.push(`${i} with ${half + i}`);
+      pairDesc.textContent =
+        `Join file ${examples.join(', ')}${half > 2 ? ', …' : ''} (${half} PDF${half > 1 ? 's' : ''})`;
+    } else {
+      pairDesc.textContent = `Needs an even number of selected files (${fileCount} selected)`;
+    }
+  }
 
   // If the remembered choice isn't offered in this view, fall back to Merge
   const checkedMode = document.querySelector('input[name="exportMode"]:checked');
-  if (checkedMode && checkedMode.closest('label').classList.contains('hidden')) {
+  if (checkedMode && (checkedMode.disabled || checkedMode.closest('label').classList.contains('hidden'))) {
     document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
   }
 
@@ -1086,9 +1116,11 @@ function handleExportConfirm() {
   closeExportModal();
 
   if (mode === 'separate') {
-    handleSeparate();
-  } else if (mode === 'keep-files') {
-    handleKeepFilesSeparate();
+    // One PDF per page in Pages view, one PDF per file in Files view
+    if (fileView) handleSeparateFiles();
+    else handleSeparatePages();
+  } else if (mode === 'merge-pairs') {
+    handleMergeInPairs();
   } else if (mode === 'trim-last') {
     handleTrimLast();
   } else {
@@ -1127,7 +1159,7 @@ async function handleMerge() {
   }
 }
 
-async function handleSeparate() {
+async function handleSeparatePages() {
   const pagesToSeparate = pageManager.getSelectedPages();
   if (pagesToSeparate.length === 0) return;
 
@@ -1172,8 +1204,83 @@ async function handleSeparate() {
       downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
     }
   } catch (error) {
-    console.error('Separate failed:', error);
+    console.error('Separate pages failed:', error);
     alert(`Error separating pages: ${error.message}\n\nCheck console for details.`);
+  } finally {
+    busy = false;
+    updateStats();
+  }
+}
+
+// Selected files (any page selected), in the order their cards appear in Files view
+function selectedFileOrder() {
+  const selectedFiles = new Set(pageManager.getSelectedPages().map(p => p.fileIndex));
+  return representativePages()
+    .map(p => p.fileIndex)
+    .filter(fileIndex => selectedFiles.has(fileIndex));
+}
+
+// Files view export: pairs the first half of the selected files with the second half
+// (10 files: 1+6, 2+7, 3+8, 4+9, 5+10) and appends each second file to its first.
+// Needs an even number of selected files.
+async function handleMergeInPairs() {
+  const order = selectedFileOrder();
+  if (order.length < 2 || order.length % 2 !== 0) {
+    alert(`Merge in pairs needs an even number of selected files (${order.length} selected).`);
+    return;
+  }
+
+  const half = order.length / 2;
+  const selected = pageManager.getSelectedPages();
+  const pagesOf = fileIndex => selected.filter(p => p.fileIndex === fileIndex);
+
+  busy = true;
+  updateStats();
+
+  try {
+    const loadedPdfs = await loadSourcePdfs(selected);
+    const results = [];
+    const usedNames = new Set();
+
+    for (let i = 0; i < half; i++) {
+      const firstIndex = order[i];
+      const secondIndex = order[i + half];
+      const firstName = pageManager.originalFiles[firstIndex].name;
+      const secondName = pageManager.originalFiles[secondIndex].name;
+
+      try {
+        const outPdf = await PDFLib.PDFDocument.create();
+        for (const page of [...pagesOf(firstIndex), ...pagesOf(secondIndex)]) {
+          await copyPageInto(outPdf, loadedPdfs, page);
+        }
+        const bytes = await outPdf.save();
+
+        // Named after the first file of the pair
+        const base = firstName.replace(/\.pdf$/i, '');
+        let name = `${base}_merged.pdf`;
+        for (let n = 2; usedNames.has(name); n++) name = `${base}_merged (${n}).pdf`;
+        usedNames.add(name);
+        results.push({ name, bytes });
+      } catch (pairError) {
+        throw new Error(`Failed on "${firstName}" + "${secondName}": ${pairError.message}`);
+      }
+    }
+
+    if (results.length === 1) {
+      downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+    } else {
+      // Everything goes inside one top-level folder in the ZIP
+      const base = outputFilename.value.trim() || 'merged-files';
+      const folderName = `${sanitizeFilename(base) || 'merged-files'}_merged`;
+      const zip = new JSZip();
+      const folder = zip.folder(folderName);
+      results.forEach(r => folder.file(r.name, r.bytes));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+    }
+  } catch (error) {
+    console.error('Merge in pairs failed:', error);
+    alert(`Error merging files: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
     updateStats();
@@ -1182,7 +1289,7 @@ async function handleSeparate() {
 
 // Files view export: one PDF per file, keeping all of its selected pages
 // in their current order and rotation.
-async function handleKeepFilesSeparate() {
+async function handleSeparateFiles() {
   const selected = pageManager.getSelectedPages();
   if (selected.length === 0) return;
 
@@ -1233,7 +1340,7 @@ async function handleKeepFilesSeparate() {
       downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
     }
   } catch (error) {
-    console.error('Keep files separate failed:', error);
+    console.error('Separate files failed:', error);
     alert(`Error saving files: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;

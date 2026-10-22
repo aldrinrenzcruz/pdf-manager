@@ -147,7 +147,21 @@
             <i class="bi bi-files text-2xl"></i>
             <div>
               <div class="text-base font-semibold text-gray-900">Merge</div>
-              <div class="text-sm text-gray-500">Combine selected pages into one PDF</div>
+              <div id="mergeDesc" class="text-sm text-gray-500">Combine selected pages into one PDF</div>
+            </div>
+          </div>
+          <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+        </label>
+
+        <label id="pairMergeOption" class="hidden relative block cursor-pointer">
+          <input type="radio" id="pairMergeInput" name="exportMode" value="merge-pairs" class="peer sr-only">
+          <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
+                    hover:bg-gray-100 peer-checked:bg-gray-100
+                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+            <i class="bi bi-file-earmark-plus text-2xl"></i>
+            <div>
+              <div class="text-base font-semibold text-gray-900">Merge in pairs</div>
+              <div id="pairMergeDesc" class="text-sm text-gray-500">Join the first half of the files with the second half</div>
             </div>
           </div>
           <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
@@ -158,24 +172,10 @@
           <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <i class="bi bi-file-earmark-break text-2xl"></i>
-            <div>
-              <div class="text-base font-semibold text-gray-900">Separate</div>
-              <div class="text-sm text-gray-500">Save each selected page as its own PDF</div>
-            </div>
-          </div>
-          <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
-        </label>
-
-        <label id="keepFilesOption" class="hidden relative block cursor-pointer">
-          <input type="radio" name="exportMode" value="keep-files" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
             <i class="bi bi-file-earmark-pdf text-2xl"></i>
             <div>
-              <div class="text-base font-semibold text-gray-900">Keep files separate</div>
-              <div class="text-sm text-gray-500">Save each selected file as its own PDF</div>
+              <div class="text-base font-semibold text-gray-900">Save separately</div>
+              <div id="separateDesc" class="text-sm text-gray-500">Save each selected page as its own PDF</div>
             </div>
           </div>
           <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
