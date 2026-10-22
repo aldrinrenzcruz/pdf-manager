@@ -1215,7 +1215,7 @@ async function handleSeparatePages() {
       downloadFile(pdfBytes, `${filename}_page-${pageIndex + 1}.pdf`, 'application/pdf');
     } else {
       // Everything goes inside one top-level folder in the ZIP
-      const folderName = `${sanitizeFilename(filename) || 'separated-pages'}_separated`;
+      const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
 
@@ -1304,8 +1304,7 @@ async function handleMergeInPairs() {
       downloadFile(results[0].bytes, results[0].name, 'application/pdf');
     } else {
       // Everything goes inside one top-level folder in the ZIP
-      const base = outputFilename.value.trim() || 'merged-files';
-      const folderName = `${sanitizeFilename(base) || 'merged-files'}_merged`;
+      const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
       results.forEach(r => folder.file(r.name, r.bytes));
@@ -1365,8 +1364,7 @@ async function handleSeparateFiles() {
       downloadFile(results[0].bytes, results[0].name, 'application/pdf');
     } else {
       // Everything goes inside one top-level folder in the ZIP
-      const base = outputFilename.value.trim() || 'files';
-      const folderName = `${sanitizeFilename(base) || 'files'}_files`;
+      const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
       results.forEach(r => folder.file(r.name, r.bytes));
@@ -1436,8 +1434,7 @@ async function handleTrimLast() {
       downloadFile(results[0].bytes, results[0].name, 'application/pdf');
     } else {
       // Everything goes inside one top-level folder in the ZIP
-      const base = outputFilename.value.trim() || 'trimmed-files';
-      const folderName = `${sanitizeFilename(base) || 'trimmed-files'}_trimmed`;
+      const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
       results.forEach(r => folder.file(r.name, r.bytes));
@@ -1497,6 +1494,16 @@ async function handleExtractLastPages() {
     busy = false;
     updateStats();
   }
+}
+
+// Name for every exported ZIP and the folder inside it: pdf-manager-YYYYMMDD-HHMMSS.
+// Files inside keep their own names.
+function exportFolderName() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  const time = `${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  return `pdf-manager-${date}-${time}`;
 }
 
 function downloadFile(data, filename, mimeType) {
