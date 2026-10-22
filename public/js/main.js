@@ -93,9 +93,8 @@ const extractHeader = document.getElementById('extractHeader');
 const extractSubOptions = document.getElementById('extractSubOptions');
 const separateOption = document.getElementById('separateOption');
 const separateCheckbox = document.getElementById('separateCheckbox');
-let separateAuto = false; // true when the tick was set automatically by "Extract only"
+let separateAuto = false;
 
-// "Extract specific pages" / "Extract page range" inputs
 const extractPagesInput = document.getElementById('extractPagesInput');
 const extractFromInput = document.getElementById('extractFromInput');
 const extractToInput = document.getElementById('extractToInput');
@@ -103,7 +102,7 @@ const extractPagesFields = document.getElementById('extractPagesFields');
 const extractRangeFields = document.getElementById('extractRangeFields');
 const extractPagesWarning = document.getElementById('extractPagesWarning');
 const extractRangeWarning = document.getElementById('extractRangeWarning');
-let extractError = null; // non-null blocks the Export button
+let extractError = null;
 
 const previewModal = document.getElementById('previewModal');
 const closeModal = document.getElementById('closeModal');
@@ -129,9 +128,6 @@ const ZOOM_STEP = 1.25;
 const MAX_CANVAS_PIXELS = 16000000;
 let previewZoom = 1;
 
-// Both the header button and the empty-state box open the same file picker.
-// The whole page area (uploadZone) accepts dropped files, but only the box in the
-// middle (uploadBox) is clickable, so a stray click elsewhere does nothing.
 addPdfsBtn.addEventListener('click', openFilePicker);
 document.getElementById('uploadBox').addEventListener('click', openFilePicker);
 fileInput.addEventListener('change', handleFileSelect);
@@ -158,8 +154,6 @@ exportModal.addEventListener('change', (e) => {
   if (e.target.name === 'exportMode') updateExportSubOptions();
 });
 
-// Strip disallowed characters from an input as the user types or pastes, keeping the caret in place.
-// `disallowed` is a global regex matching every character that must be removed.
 function filterInput(el, disallowed) {
   const cleaned = el.value.replace(disallowed, '');
   if (cleaned === el.value) return;
@@ -170,8 +164,6 @@ function filterInput(el, disallowed) {
   el.setSelectionRange(caretAfter, caretAfter);
 }
 
-// Specific pages: digits, commas and spaces only. Page range: digits only.
-// Filter first, then re-validate with the cleaned value.
 extractPagesInput.addEventListener('input', () => {
   filterInput(extractPagesInput, /[^\d,\s]/g);
   updateExtractValidity();
@@ -183,7 +175,6 @@ extractPagesInput.addEventListener('input', () => {
   })
 );
 
-// Clicking the Extract header selects its default sub item (Extract only)
 function selectExtract() {
   const current = document.querySelector('input[name="exportMode"]:checked')?.value || '';
   if (current.startsWith('extract')) return;
@@ -196,7 +187,6 @@ extractHeader.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectExtract(); }
 });
 
-// A manual tick/untick means the tick is no longer "ours" to remove
 separateCheckbox.addEventListener('change', () => { separateAuto = false; });
 
 exportModal.addEventListener('mousedown', (e) => {
@@ -255,9 +245,6 @@ zoomInBtn.addEventListener('click', () => setPreviewZoom(previewZoom * ZOOM_STEP
 zoomOutBtn.addEventListener('click', () => setPreviewZoom(previewZoom / ZOOM_STEP));
 zoomLevel.addEventListener('click', () => setPreviewZoom(1));
 
-// Ctrl/Cmd + scroll behaves like clicking the zoom in / zoom out buttons:
-// one fixed step per scroll tick. A short throttle keeps trackpad pinch
-// (which fires many wheel events) from jumping several steps at once.
 let lastWheelZoom = 0;
 const WHEEL_ZOOM_THROTTLE_MS = 120;
 previewModal.addEventListener('wheel', (e) => {
@@ -285,7 +272,6 @@ uploadZone.addEventListener('dragover', (e) => {
 });
 
 uploadZone.addEventListener('dragleave', (e) => {
-  // Moving onto the box inside the zone also fires dragleave; ignore that so the highlight doesn't flicker
   if (e.relatedTarget && uploadZone.contains(e.relatedTarget)) return;
   uploadZone.classList.remove('drag-over');
 });
@@ -307,8 +293,6 @@ function handleFileSelect(e) {
   fileInput.value = '';
 }
 
-// Queue batches so adding more PDFs while earlier ones are still loading
-// can't interleave pages or file indices.
 function processFiles(files) {
   loadQueue = loadQueue
     .then(() => processFilesNow(files))
@@ -472,7 +456,6 @@ async function addPageToGrid(pageObj) {
   checkbox.addEventListener('change', (e) => {
     e.stopPropagation();
     if (fileView) {
-      // File card: select/unselect every page of that file
       const page = pageManager.getPage(pageObj.id);
       pageManager.getAllPages()
         .filter(p => p.fileIndex === page.fileIndex)
@@ -498,7 +481,6 @@ async function addPageToGrid(pageObj) {
     e.stopPropagation();
 
     if (fileView) {
-      // File card: delete every page of that file
       const page = pageManager.getPage(pageObj.id);
       const filePages = pageManager.getAllPages().filter(p => p.fileIndex === page.fileIndex);
       const pageLabel = filePages.length === 1 ? '1 page' : `all ${filePages.length} pages`;
@@ -517,7 +499,6 @@ async function addPageToGrid(pageObj) {
     updateStats();
   });
 
-  // Dragover and drop are handled on the scroll area (see "Drag to reorder")
   pageDiv.addEventListener('dragstart', handleDragStart);
   pageDiv.addEventListener('dragend', handleDragEnd);
 
@@ -525,11 +506,10 @@ async function addPageToGrid(pageObj) {
   gridContainer.appendChild(pageDiv);
 }
 
-// ---------- Drag to reorder ----------
 let draggedPageId = null;
-let dragCache = [];       // card geometry, measured once per drag
+let dragCache = [];
 let dragGap = 16;
-let dragPlan = null;      // { targetId, after, fromIndex, toIndex } or null
+let dragPlan = null;
 let dragPointer = { x: 0, y: 0 };
 let autoScrollRaf = null;
 
@@ -547,10 +527,9 @@ function handleDragStart(e) {
   dragPointer = { x: e.clientX, y: e.clientY };
 
   e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', String(draggedPageId)); // Firefox needs this
+  e.dataTransfer.setData('text/plain', String(draggedPageId));
 
   dragGap = parseFloat(getComputedStyle(pagesGrid).columnGap) || 16;
-  // Hidden cards (non-representative pages in file view) are skipped
   dragCache = Array.from(pagesGrid.querySelectorAll('.pdf-page:not(.hidden)')).map(el => ({
     id: Number(el.dataset.pageId),
     x: el.offsetLeft,
@@ -559,14 +538,13 @@ function handleDragStart(e) {
     h: el.offsetHeight
   }));
 
-  // Fade the source card after the browser has captured the drag image
   requestAnimationFrame(() => card.classList.add('dragging'));
 
   startAutoScroll();
 }
 
 function handleDragOver(e) {
-  if (draggedPageId === null) return; // not a page drag (e.g. files)
+  if (draggedPageId === null) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   dragPointer = { x: e.clientX, y: e.clientY };
@@ -596,7 +574,6 @@ function handleDrop(e) {
 
   animateReorder(() => {
     if (fileView) {
-      // In file view, all pages of the dragged file move together
       moveFileGroup(draggedId, plan.targetId, plan.after);
     } else {
       pageManager.reorderPages(plan.fromIndex, plan.toIndex);
@@ -624,7 +601,6 @@ function finishDrag() {
   pagesGrid.querySelectorAll('.pdf-page.dragging').forEach(el => el.classList.remove('dragging'));
 }
 
-// Find the card nearest the pointer and whether to insert before or after it
 function updateDropTarget() {
   const grid = pagesGrid.getBoundingClientRect();
   const x = dragPointer.x - grid.left;
@@ -654,7 +630,6 @@ function updateDropTarget() {
   let toIndex = pages.findIndex(p => p.id === best.id) + (after ? 1 : 0);
   if (fromIndex < toIndex) toIndex--;
 
-  // Dropping where it already is: no indicator, nothing to do
   if (fromIndex === -1 || toIndex === fromIndex) {
     dragPlan = null;
     dropIndicator.classList.remove('visible');
@@ -670,7 +645,6 @@ function updateDropTarget() {
   dropIndicator.classList.add('visible');
 }
 
-// Scroll the page area while dragging near its top or bottom edge
 function startAutoScroll() {
   const zone = 100;
   const maxSpeed = 18;
@@ -691,7 +665,7 @@ function startAutoScroll() {
 
     if (speed) {
       mainContent.scrollTop += speed;
-      updateDropTarget(); // content moved under the pointer
+      updateDropTarget();
     }
 
     autoScrollRaf = requestAnimationFrame(step);
@@ -700,7 +674,6 @@ function startAutoScroll() {
   autoScrollRaf = requestAnimationFrame(step);
 }
 
-// FLIP animation: cards glide from their old positions to the new ones
 function animateReorder(mutate) {
   const cards = Array.from(pagesGrid.querySelectorAll('.pdf-page'));
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -724,9 +697,6 @@ function animateReorder(mutate) {
   }
 }
 
-// ---------- Pages / Files view ----------
-
-// First remaining page of each file, in current order
 function representativePages() {
   const seen = new Set();
   return pageManager.getAllPages().filter(p => {
@@ -736,9 +706,6 @@ function representativePages() {
   });
 }
 
-// Refresh card visibility and labels for the current view mode.
-// Page view: every page, labelled with its number.
-// File view: one card per file (its current first page), labelled with the file name.
 function applyView() {
   const pages = pageManager.getAllPages();
   const reps = new Set(representativePages().map(p => p.id));
@@ -762,10 +729,6 @@ function applyView() {
   syncSelectionUI();
 }
 
-// Keep every card's checkbox and highlight in step with the page data.
-// Page view: each card mirrors its own page.
-// File view: each card mirrors its whole file (checked = all pages selected,
-// dash = some pages selected).
 function syncSelectionUI() {
   const pages = pageManager.getAllPages();
 
@@ -789,8 +752,6 @@ function syncSelectionUI() {
   });
 }
 
-// One-line file name. If it's too long, the very end is shown (the start is
-// clipped); the full name is available as a tooltip. See .file-name in app.css.
 function createFileNameEl(card, name) {
   const el = document.createElement('div');
   el.className = 'file-name';
@@ -803,7 +764,6 @@ function createFileNameEl(card, name) {
   return el;
 }
 
-// File view: move all pages of the dragged file together
 function moveFileGroup(draggedId, targetId, after) {
   const pages = pageManager.pages;
   const dragFile = pageManager.getPage(draggedId).fileIndex;
@@ -861,9 +821,6 @@ function handleDeleteSelected() {
   updateStats();
 }
 
-// Delete the last page of each file that has selected pages (works in both views).
-// "Last page" = the last selected page of that file in the current order.
-// A single-page file is removed entirely.
 function handleDeleteLastPages() {
   const lastByFile = new Map();
   for (const page of pageManager.getSelectedPages()) lastByFile.set(page.fileIndex, page);
@@ -887,8 +844,6 @@ function updateStats() {
   const total = pages.length;
   const selected = pageManager.getSelectedPages().length;
 
-  // The counter shows files in Files view and pages in Pages view.
-  // This is display only: the page selection underneath is unchanged.
   if (fileView) {
     totalPagesSpan.textContent = new Set(pages.map(p => p.fileIndex)).size;
     selectedPagesSpan.textContent = new Set(pages.filter(p => p.selected).map(p => p.fileIndex)).size;
@@ -931,7 +886,6 @@ function openExportModal() {
   const count = pageManager.getSelectedPages().length;
   if (count === 0) return;
 
-  // Files view counts files; Pages view counts pages
   if (fileView) {
     const fileCount = selectedFileOrder().length;
     exportCount.textContent = fileCount === 1 ? '1 file' : `${fileCount} files`;
@@ -939,8 +893,6 @@ function openExportModal() {
     exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
   }
 
-  // Merge and Extract only are shown in both views, worded for the current one.
-  // Extract first/last pages are file-level, so they're only offered in Files view.
   document.getElementById('mergeDesc').textContent = fileView
     ? 'Combine all pages of the selected files into one PDF'
     : 'Combine selected pages into one PDF';
@@ -951,7 +903,6 @@ function openExportModal() {
   document.getElementById('extractFirstOption').classList.toggle('hidden', !fileView);
   document.getElementById('extractLastOption').classList.toggle('hidden', !fileView);
 
-  // Specific pages / page range: available in both views, worded for the current one
   document.getElementById('extractPagesDesc').textContent = fileView
     ? 'Export the same page numbers from each selected file'
     : 'Export only the page numbers you enter';
@@ -959,7 +910,6 @@ function openExportModal() {
     ? 'Export the same page range from each selected file'
     : 'Export every page from one number to another';
 
-  // Merge in pairs (checkbox under Merge): Files view only, and only when the selected files pair up evenly
   if (fileView) {
     const fileCount = selectedFileOrder().length;
     const ok = fileCount >= 2 && fileCount % 2 === 0;
@@ -970,11 +920,9 @@ function openExportModal() {
     pairMergeOption.classList.toggle('cursor-not-allowed', !ok);
     pairMergeOption.classList.toggle('cursor-pointer', ok);
 
-    // Description is fixed; explain a disabled state in the tooltip instead
     pairMergeOption.title = ok ? '' : `Needs an even number of selected files (${fileCount} selected)`;
   }
 
-  // If the remembered choice isn't offered in this view, fall back to Merge
   const checkedMode = document.querySelector('input[name="exportMode"]:checked');
   if (checkedMode && (checkedMode.disabled || checkedMode.closest('label').classList.contains('hidden'))) {
     document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
@@ -986,7 +934,6 @@ function openExportModal() {
   exportConfirmBtn.focus();
 }
 
-// Keep the sub-options and the "Save separately" checkbox in step with the chosen mode
 function updateExportSubOptions() {
   const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
   const isMerge = mode === 'merge';
@@ -998,22 +945,18 @@ function updateExportSubOptions() {
   extractHeader.classList.toggle('bg-gray-100', isExtract);
 
   if (isMerge) {
-    // Any merge: Save separately makes no sense, so untick and disable it
     separateCheckbox.checked = false;
     separateAuto = false;
   } else if (mode === 'extract-only') {
-    // Extract only implies saving separately
     if (!separateCheckbox.checked) {
       separateCheckbox.checked = true;
       separateAuto = true;
     }
   } else if (separateAuto) {
-    // Moved away from Extract only: remove the tick we added ourselves
     separateCheckbox.checked = false;
     separateAuto = false;
   }
 
-  // Locked: Merge (always unticked) and Extract only (always ticked)
   const locked = isMerge || mode === 'extract-only';
   separateCheckbox.disabled = locked;
   separateOption.classList.toggle('opacity-40', locked);
@@ -1021,7 +964,6 @@ function updateExportSubOptions() {
   separateOption.classList.toggle('cursor-pointer', !locked);
   separateOption.classList.toggle('hover:bg-gray-100', !locked);
 
-  // Show the inputs for the chosen extract option and re-check them
   extractPagesFields.classList.toggle('hidden', mode !== 'extract-pages');
   extractRangeFields.classList.toggle('hidden', mode !== 'extract-range');
   updateExtractValidity();
@@ -1034,13 +976,11 @@ function closeExportModal() {
 function handleExportConfirm() {
   const mode = document.querySelector('input[name="exportMode"]:checked').value;
 
-  // Never export with invalid page numbers (the button is disabled too, this is a safety net)
   if ((mode === 'extract-pages' || mode === 'extract-range') && getExtractRequest().error) return;
 
   closeExportModal();
 
   if (mode === 'extract-only') {
-    // One PDF per page in Pages view, one PDF per file in Files view
     if (fileView) handleSeparateFiles();
     else handleSeparatePages();
   } else if (mode === 'extract-first') {
@@ -1050,7 +990,6 @@ function handleExportConfirm() {
   } else if (mode === 'extract-pages' || mode === 'extract-range') {
     handleExtractSpecific();
   } else if (fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
-    // Merge with "Merge in pairs" ticked
     handleMergeInPairs();
   } else {
     handleMerge();
@@ -1109,7 +1048,6 @@ async function handleSeparatePages() {
       const pageIndex = allPages.findIndex(p => p.id === page.id);
       downloadFile(pdfBytes, `${filename}-${padNum(pageIndex + 1, allPages.length)}.pdf`, 'application/pdf');
     } else {
-      // Everything goes inside one top-level folder in the ZIP
       const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
@@ -1141,7 +1079,6 @@ async function handleSeparatePages() {
   }
 }
 
-// Selected files (any page selected), in the order their cards appear in Files view
 function selectedFileOrder() {
   const selectedFiles = new Set(pageManager.getSelectedPages().map(p => p.fileIndex));
   return representativePages()
@@ -1149,9 +1086,6 @@ function selectedFileOrder() {
     .filter(fileIndex => selectedFiles.has(fileIndex));
 }
 
-// Files view export: pairs the first half of the selected files with the second half
-// (10 files: 1+6, 2+7, 3+8, 4+9, 5+10) and appends each second file to its first.
-// Needs an even number of selected files.
 async function handleMergeInPairs() {
   const order = selectedFileOrder();
   if (order.length < 2 || order.length % 2 !== 0) {
@@ -1183,7 +1117,6 @@ async function handleMergeInPairs() {
         }
         const bytes = await outPdf.save();
 
-        // Named after the filename box plus the pair number (01, 02, ...)
         const name = `${exportBaseName()}-${padNum(i + 1, half)}.pdf`;
         results.push({ name, bytes });
       } catch (pairError) {
@@ -1194,7 +1127,6 @@ async function handleMergeInPairs() {
     if (results.length === 1) {
       downloadFile(results[0].bytes, results[0].name, 'application/pdf');
     } else {
-      // Everything goes inside one top-level folder in the ZIP
       const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
@@ -1211,13 +1143,10 @@ async function handleMergeInPairs() {
   }
 }
 
-// Files view export: one PDF per file, keeping all of its selected pages
-// in their current order and rotation.
 async function handleSeparateFiles() {
   const selected = pageManager.getSelectedPages();
   if (selected.length === 0) return;
 
-  // Group selected pages by file, keeping current order
   const groups = new Map();
   for (const page of selected) {
     if (!groups.has(page.fileIndex)) groups.set(page.fileIndex, []);
@@ -1251,7 +1180,6 @@ async function handleSeparateFiles() {
     if (results.length === 1) {
       downloadFile(results[0].bytes, results[0].name, 'application/pdf');
     } else {
-      // Everything goes inside one top-level folder in the ZIP
       const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
@@ -1268,9 +1196,6 @@ async function handleSeparateFiles() {
   }
 }
 
-// Files view export: the first or last selected page of each selected file,
-// with its current rotation. Combined into one PDF by default, or one PDF per
-// file (zipped) when "Save separately" is ticked.
 async function handleExtractEdgePages(which) {
   const selected = pageManager.getSelectedPages();
   if (selected.length === 0) return;
@@ -1339,26 +1264,12 @@ async function handleExtractEdgePages(which) {
   }
 }
 
-// ---------- Extract specific pages / page range ----------
-
-// Reads the inputs of "Extract specific pages" / "Extract page range" and checks
-// them against the loaded PDFs.
-//
-// Page numbers mean:
-//   Pages view: the number shown on the card, counting only selected pages.
-//   Files view: page N of each selected file (counting that file's selected pages).
-//
-// Returns { error, silent, groups, label }:
-//   error  - message (or null when the input is valid / the mode doesn't need input)
-//   silent - true when the input is just incomplete: block Export but show no warning yet
-//   groups - arrays of pages to export (one per page in Pages view, one per file in Files view)
-//   label  - filename suffix, e.g. "_pages-2-to-5"
 function getExtractRequest() {
   const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
   if (mode !== 'extract-pages' && mode !== 'extract-range') return { error: null };
 
-  let numbers = null;   // sorted unique page numbers (specific pages mode)
-  let rangeFrom = 0;    // range mode
+  let numbers = null;
+  let rangeFrom = 0;
   let rangeTo = 0;
   let label;
 
@@ -1432,12 +1343,10 @@ function getExtractRequest() {
   return { error: null, groups: pages.map(p => [p]), label };
 }
 
-// Show/hide the warning and enable/disable the Export button for the current input
 function updateExtractValidity() {
   const req = getExtractRequest();
   extractError = req.error || null;
 
-  // The warning sits directly under whichever input is active
   const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
   const target = mode === 'extract-range' ? extractRangeWarning : extractPagesWarning;
   const show = !!req.error && !req.silent;
@@ -1448,14 +1357,11 @@ function updateExtractValidity() {
     el.querySelector('.warning-text').textContent = active ? req.error : '';
   }
 
-  // If the warning landed outside the visible part of the scrolling list, bring it into view
   if (show) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 
   exportConfirmBtn.disabled = busy || pageManager.getSelectedPages().length === 0 || !!extractError;
 }
 
-// Extract specific pages / page range. One combined PDF by default, or one PDF per
-// page (Pages view) / per file (Files view) when "Save separately" is ticked.
 async function handleExtractSpecific() {
   const req = getExtractRequest();
   if (req.error || !req.groups) return;
@@ -1503,18 +1409,14 @@ async function handleExtractSpecific() {
   }
 }
 
-// Base name for exported files: the filename box, or "Untitled" when it's empty
 function exportBaseName() {
   return outputFilename.value.trim() || 'Untitled';
 }
 
-// Zero-padded sequence number, at least 2 digits (01, 02, ...), wide enough for `total`
 function padNum(n, total) {
   return String(n).padStart(Math.max(2, String(total).length), '0');
 }
 
-// Name for every exported ZIP and the folder inside it: pdf-manager-YYYYMMDD-HHMMSS.
-// Files inside keep their own names.
 function exportFolderName() {
   const d = new Date();
   const p = n => String(n).padStart(2, '0');
@@ -1641,8 +1543,6 @@ async function renderPreviewTextLayer(page, container, scale, token) {
   }
 }
 
-// Pages the preview can step through: all pages, or in file view only
-// the pages of the file being previewed
 function previewScopePages(pageId = currentPreviewPageId) {
   const all = pageManager.getAllPages();
   if (!fileView) return all;

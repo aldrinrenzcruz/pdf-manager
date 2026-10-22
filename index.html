@@ -34,7 +34,6 @@
 
 <body class="bg-gray-50 min-h-screen antialiased">
   <div class="flex flex-col h-screen overflow-hidden">
-    <!-- Header -->
     <header class="bg-white border-b border-gray-200 px-4 py-1">
       <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         <h1 class="font-display text-sm font-semibold text-gray-900 whitespace-nowrap">PDF Manager</h1>
@@ -59,10 +58,8 @@
       </div>
     </header>
 
-    <!-- Toolbar (shown once pages are loaded) -->
     <div id="selectAllContainer"
       class="hidden grid grid-cols-[1fr_auto_1fr] items-center gap-3 bg-white border-b border-gray-200 px-4 py-1">
-      <!-- Left: selection -->
       <div class="flex items-center gap-2">
         <label title="Select all pages"
           class="flex items-center gap-2.5 h-8 pl-2 pr-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
@@ -80,7 +77,6 @@
         </label>
       </div>
 
-      <!-- Center: delete -->
       <div class="flex items-center justify-center gap-2">
         <button id="deleteSelectedBtn" disabled title="Delete selected pages"
           class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
@@ -94,7 +90,6 @@
         </button>
       </div>
 
-      <!-- Right: view toggle -->
       <div id="toolbarActions" class="flex items-center justify-end gap-2">
         <div id="viewToggle" role="group" aria-label="View mode"
           class="flex items-center p-0.5 bg-gray-100 rounded-full text-sm font-medium">
@@ -110,10 +105,7 @@
       </div>
     </div>
 
-    <!-- Upload Zone / Pages Grid -->
     <div id="mainContent" class="flex-1 overflow-y-auto p-6 flex flex-col">
-      <!-- Initial Upload Zone -->
-      <!-- The whole page area accepts dropped files; only the box in the middle opens the file picker on click -->
       <div id="uploadZone" class="drop-zone group flex-1 -m-6 flex items-center justify-center">
         <div id="uploadBox"
           class="w-[min(42rem,90vw)] h-96 flex flex-col items-center justify-center rounded-2xl cursor-pointer
@@ -127,14 +119,11 @@
         </div>
       </div>
 
-      <!-- Pages Grid (hidden initially) -->
       <div id="pagesGrid" class="hidden relative w-full grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-        <!-- Pages will be inserted here -->
       </div>
     </div>
   </div>
 
-  <!-- Export Modal -->
   <div id="exportModal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4"
     role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl h-[42rem] max-h-full flex flex-col p-8">
@@ -150,7 +139,6 @@
       </p>
 
       <div class="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
-        <!-- Merge -->
         <label class="relative block cursor-pointer">
           <input type="radio" name="exportMode" value="merge" class="peer sr-only" checked>
           <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
@@ -179,7 +167,6 @@
           </span>
         </label>
 
-        <!-- Extract group -->
         <div id="extractHeader" role="button" tabindex="0"
           class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors">
           <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
@@ -189,7 +176,6 @@
           </div>
         </div>
 
-        <!-- Extract sub items (only shown while Extract is selected) -->
         <div id="extractSubOptions" class="hidden space-y-2">
 
         <label id="extractOnlyOption" class="relative block cursor-pointer ml-10">
@@ -231,7 +217,6 @@
           <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
         </label>
 
-        <!-- Extract specific pages -->
         <label id="extractPagesOption" class="relative block cursor-pointer ml-10">
           <input type="radio" name="exportMode" value="extract-pages" class="peer sr-only">
           <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
@@ -254,7 +239,6 @@
           </p>
         </div>
 
-        <!-- Extract page range -->
         <label id="extractRangeOption" class="relative block cursor-pointer ml-10">
           <input type="radio" name="exportMode" value="extract-range" class="peer sr-only">
           <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
@@ -284,7 +268,6 @@
         </div>
       </div>
 
-      <!-- Footer: checkbox on the left, buttons on the right (outside the scroll area) -->
       <div class="flex items-center justify-between gap-4 mt-6 shrink-0">
       <label id="separateOption" class="flex items-center gap-3 w-fit py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
         <input type="checkbox" id="separateCheckbox" class="peer sr-only">
@@ -310,7 +293,6 @@
     </div>
   </div>
 
-  <!-- Preview Overlay (full screen) -->
   <div id="previewModal" class="hidden">
     <div class="preview-toolbar">
       <div class="min-w-0">
@@ -338,7 +320,7 @@
       </div>
     </div>
 
-    <div id="modalCanvas"><!-- canvas inserted here --></div>
+    <div id="modalCanvas"></div>
 
     <button id="prevPage" class="preview-nav preview-nav-prev" title="Previous (←)">
       <i class="bi bi-chevron-left"></i>

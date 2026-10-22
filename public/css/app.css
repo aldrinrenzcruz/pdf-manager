@@ -7,7 +7,6 @@
   -webkit-user-drag: none;
 }
 
-/* Text inputs must stay typeable (Safari honours the global rule above) */
 input,
 textarea {
   -webkit-user-select: text;
@@ -222,7 +221,6 @@ textarea {
   }
 }
 
-/* PDF page cards */
 .pdf-page {
   box-shadow: 0 0 0 2px transparent;
   transition:
