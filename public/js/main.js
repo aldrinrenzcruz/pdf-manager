@@ -87,6 +87,10 @@ const exportCount = document.getElementById('exportCount');
 const exportCloseBtn = document.getElementById('exportCloseBtn');
 const exportCancelBtn = document.getElementById('exportCancelBtn');
 const exportConfirmBtn = document.getElementById('exportConfirmBtn');
+const pairMergeOption = document.getElementById('pairMergeOption');
+const pairMergeCheckbox = document.getElementById('pairMergeCheckbox');
+const lastSeparateOption = document.getElementById('lastSeparateOption');
+const lastSeparateCheckbox = document.getElementById('lastSeparateCheckbox');
 
 const previewModal = document.getElementById('previewModal');
 const closeModal = document.getElementById('closeModal');
@@ -136,6 +140,9 @@ exportBtn.addEventListener('click', openExportModal);
 exportCloseBtn.addEventListener('click', closeExportModal);
 exportCancelBtn.addEventListener('click', closeExportModal);
 exportConfirmBtn.addEventListener('click', handleExportConfirm);
+exportModal.addEventListener('change', (e) => {
+  if (e.target.name === 'exportMode') updateExportSubOptions();
+});
 
 exportModal.addEventListener('mousedown', (e) => {
   if (e.target === exportModal) closeExportModal();
@@ -1093,46 +1100,29 @@ function openExportModal() {
   }
 
   // Merge and Save separately are shown in both views, worded for the current one.
-  // Trim last page is file-level, so it's only offered in Files view.
+  // Extract last pages is file-level, so it's only offered in Files view.
   document.getElementById('mergeDesc').textContent = fileView
     ? 'Combine all pages of the selected files into one PDF'
     : 'Combine selected pages into one PDF';
   document.getElementById('separateDesc').textContent = fileView
     ? 'Save each selected file as its own PDF'
     : 'Save each selected page as its own PDF';
-  document.getElementById('trimLastOption').classList.toggle('hidden', !fileView);
 
-  // Extract last pages: Files view only
   document.getElementById('lastPageOption').classList.toggle('hidden', !fileView);
-  if (fileView) {
-    const lastCount = selectedFileOrder().length;
-    document.getElementById('lastPageDesc').textContent =
-      `Combine the last page of each selected file into one PDF (${lastCount} page${lastCount === 1 ? '' : 's'})`;
-  }
 
-  // Merge in pairs: Files view only, and only when the selected files pair up evenly
-  const pairOption = document.getElementById('pairMergeOption');
-  const pairInput = document.getElementById('pairMergeInput');
-  const pairDesc = document.getElementById('pairMergeDesc');
-  pairOption.classList.toggle('hidden', !fileView);
+  // Merge in pairs (checkbox under Merge): Files view only, and only when the selected files pair up evenly
   if (fileView) {
     const fileCount = selectedFileOrder().length;
-    const half = fileCount / 2;
     const ok = fileCount >= 2 && fileCount % 2 === 0;
 
-    pairInput.disabled = !ok;
-    pairOption.classList.toggle('opacity-40', !ok);
-    pairOption.classList.toggle('cursor-not-allowed', !ok);
-    pairOption.classList.toggle('cursor-pointer', ok);
+    pairMergeCheckbox.disabled = !ok;
+    if (!ok) pairMergeCheckbox.checked = false;
+    pairMergeOption.classList.toggle('opacity-40', !ok);
+    pairMergeOption.classList.toggle('cursor-not-allowed', !ok);
+    pairMergeOption.classList.toggle('cursor-pointer', ok);
 
-    if (ok) {
-      const examples = [];
-      for (let i = 1; i <= Math.min(half, 2); i++) examples.push(`${i} with ${half + i}`);
-      pairDesc.textContent =
-        `Join file ${examples.join(', ')}${half > 2 ? ', …' : ''} (${half} PDF${half > 1 ? 's' : ''})`;
-    } else {
-      pairDesc.textContent = `Needs an even number of selected files (${fileCount} selected)`;
-    }
+    // Description is fixed; explain a disabled state in the tooltip instead
+    pairMergeOption.title = ok ? '' : `Needs an even number of selected files (${fileCount} selected)`;
   }
 
   // If the remembered choice isn't offered in this view, fall back to Merge
@@ -1141,8 +1131,17 @@ function openExportModal() {
     document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
   }
 
+  updateExportSubOptions();
+
   exportModal.classList.remove('hidden');
   exportConfirmBtn.focus();
+}
+
+// Show each checkbox only under its own option, and only where it applies
+function updateExportSubOptions() {
+  const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
+  pairMergeOption.classList.toggle('hidden', !(fileView && mode === 'merge'));
+  lastSeparateOption.classList.toggle('hidden', !(fileView && mode === 'extract-last'));
 }
 
 function closeExportModal() {
@@ -1157,12 +1156,11 @@ function handleExportConfirm() {
     // One PDF per page in Pages view, one PDF per file in Files view
     if (fileView) handleSeparateFiles();
     else handleSeparatePages();
-  } else if (mode === 'merge-pairs') {
-    handleMergeInPairs();
-  } else if (mode === 'trim-last') {
-    handleTrimLast();
   } else if (mode === 'extract-last') {
     handleExtractLastPages();
+  } else if (fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
+    // Merge with "Merge in pairs" ticked
+    handleMergeInPairs();
   } else {
     handleMerge();
   }
@@ -1386,93 +1384,19 @@ async function handleSeparateFiles() {
   }
 }
 
-// Files view export: one PDF per selected file, each without its last page.
-// "Last page" = the last selected page of that file in the current order.
-async function handleTrimLast() {
-  const selected = pageManager.getSelectedPages();
-  if (selected.length === 0) return;
-
-  // Group selected pages by file, keeping current order
-  const groups = new Map();
-  for (const page of selected) {
-    if (!groups.has(page.fileIndex)) groups.set(page.fileIndex, []);
-    groups.get(page.fileIndex).push(page);
-  }
-
-  const jobs = [...groups.entries()]
-    .map(([fileIndex, pages]) => ({ fileIndex, pages: pages.slice(0, -1) }))
-    .filter(job => job.pages.length > 0);
-  const skipped = groups.size - jobs.length;
-
-  if (jobs.length === 0) {
-    alert('Nothing to export: each selected file has only one page, so trimming its last page would leave it empty.');
-    return;
-  }
-
-  busy = true;
-  updateStats();
-
-  try {
-    const loadedPdfs = await loadSourcePdfs(jobs.flatMap(job => job.pages));
-    const results = [];
-    const usedNames = new Set();
-
-    for (const job of jobs) {
-      const fileName = pageManager.originalFiles[job.fileIndex].name;
-      try {
-        const outPdf = await PDFLib.PDFDocument.create();
-        for (const page of job.pages) {
-          await copyPageInto(outPdf, loadedPdfs, page);
-        }
-        const bytes = await outPdf.save();
-
-        const base = fileName.replace(/\.pdf$/i, '');
-        let name = `${base}_trimmed.pdf`;
-        for (let n = 2; usedNames.has(name); n++) name = `${base}_trimmed (${n}).pdf`;
-        usedNames.add(name);
-        results.push({ name, bytes });
-      } catch (fileError) {
-        throw new Error(`Failed on "${fileName}": ${fileError.message}`);
-      }
-    }
-
-    if (results.length === 1) {
-      downloadFile(results[0].bytes, results[0].name, 'application/pdf');
-    } else {
-      // Everything goes inside one top-level folder in the ZIP
-      const folderName = exportFolderName();
-      const zip = new JSZip();
-      const folder = zip.folder(folderName);
-      results.forEach(r => folder.file(r.name, r.bytes));
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
-    }
-
-    if (skipped > 0) {
-      const label = skipped === 1 ? '1 file was' : `${skipped} files were`;
-      alert(`${label} skipped: only one page was selected, so nothing would be left after trimming.`);
-    }
-  } catch (error) {
-    console.error('Trim last page failed:', error);
-    alert(`Error trimming files: ${error.message}\n\nCheck console for details.`);
-  } finally {
-    busy = false;
-    updateStats();
-  }
-}
-
-// Files view export: the last page of each selected file, combined into one PDF.
-// Files appear in their Files view order; "last page" = the last selected page
-// of that file in the current order, with its current rotation.
+// Files view export: the last page of each selected file.
+// "Last page" = the last selected page of that file in the current order, with its
+// current rotation. Combined into one PDF by default (in Files view card order), or one
+// PDF per file (zipped) when "Save as separate files" is checked.
 async function handleExtractLastPages() {
   const selected = pageManager.getSelectedPages();
   if (selected.length === 0) return;
 
-  // Last selected page per file
+  const separate = lastSeparateCheckbox.checked;
+
+  // Last selected page per file, ordered the way the file cards are ordered
   const lastByFile = new Map();
   for (const page of selected) lastByFile.set(page.fileIndex, page);
-
-  // Order the pages the way the file cards are ordered
   const lastPages = selectedFileOrder().map(fileIndex => lastByFile.get(fileIndex));
 
   busy = true;
@@ -1480,19 +1404,50 @@ async function handleExtractLastPages() {
 
   try {
     const loadedPdfs = await loadSourcePdfs(lastPages);
-    const outPdf = await PDFLib.PDFDocument.create();
 
-    for (const page of lastPages) {
-      try {
-        await copyPageInto(outPdf, loadedPdfs, page);
-      } catch (pageError) {
-        throw new Error(`Failed on "${page.fileName}": ${pageError.message}`);
+    if (!separate) {
+      const outPdf = await PDFLib.PDFDocument.create();
+      for (const page of lastPages) {
+        try {
+          await copyPageInto(outPdf, loadedPdfs, page);
+        } catch (pageError) {
+          throw new Error(`Failed on "${page.fileName}": ${pageError.message}`);
+        }
+      }
+      const bytes = await outPdf.save();
+      const base = outputFilename.value.trim() || 'last-pages';
+      downloadFile(bytes, `${base}_last-pages.pdf`, 'application/pdf');
+    } else {
+      const results = [];
+      const usedNames = new Set();
+
+      for (const page of lastPages) {
+        try {
+          const outPdf = await PDFLib.PDFDocument.create();
+          await copyPageInto(outPdf, loadedPdfs, page);
+          const bytes = await outPdf.save();
+
+          const base = page.fileName.replace(/\.pdf$/i, '');
+          let name = `${base}_last-page.pdf`;
+          for (let n = 2; usedNames.has(name); n++) name = `${base}_last-page (${n}).pdf`;
+          usedNames.add(name);
+          results.push({ name, bytes });
+        } catch (fileError) {
+          throw new Error(`Failed on "${page.fileName}": ${fileError.message}`);
+        }
+      }
+
+      if (results.length === 1) {
+        downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+      } else {
+        const folderName = exportFolderName();
+        const zip = new JSZip();
+        const folder = zip.folder(folderName);
+        results.forEach(r => folder.file(r.name, r.bytes));
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
       }
     }
-
-    const bytes = await outPdf.save();
-    const base = outputFilename.value.trim() || 'last-pages';
-    downloadFile(bytes, `${base}_last-pages.pdf`, 'application/pdf');
   } catch (error) {
     console.error('Extract last pages failed:', error);
     alert(`Error extracting last pages: ${error.message}\n\nCheck console for details.`);

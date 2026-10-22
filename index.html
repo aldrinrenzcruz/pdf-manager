@@ -161,18 +161,18 @@
           <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
         </label>
 
-        <label id="pairMergeOption" class="hidden relative block cursor-pointer">
-          <input type="radio" id="pairMergeInput" name="exportMode" value="merge-pairs" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <i class="bi bi-file-earmark-plus text-2xl"></i>
-            <div>
-              <div class="text-base font-semibold text-gray-900">Merge in pairs</div>
-              <div id="pairMergeDesc" class="text-sm text-gray-500">Join the first half of the files with the second half</div>
-            </div>
-          </div>
-          <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+        <label id="pairMergeOption" class="hidden flex items-center gap-3 w-fit ml-16 mb-1 py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
+          <input type="checkbox" id="pairMergeCheckbox" class="peer sr-only">
+          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
+                       peer-checked:bg-gray-900 peer-checked:border-gray-900
+                       peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
+                       peer-checked:[&>.i-check]:opacity-100">
+            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+          </span>
+          <span class="text-sm text-gray-700">
+            <span class="font-medium">Merge in pairs</span>
+            <span class="block text-gray-500">Split the files into two equal halves, then merge them in matching order: the first file of each half, then the second of each half, and so on</span>
+          </span>
         </label>
 
         <label id="separateOption" class="relative block cursor-pointer">
@@ -189,32 +189,32 @@
           <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
         </label>
 
-        <label id="trimLastOption" class="hidden relative block cursor-pointer">
-          <input type="radio" name="exportMode" value="trim-last" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <i class="bi bi-file-earmark-minus text-2xl"></i>
-            <div>
-              <div class="text-base font-semibold text-gray-900">Trim last page</div>
-              <div class="text-sm text-gray-500">Export each selected file without its last page</div>
-            </div>
-          </div>
-          <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
-        </label>
 
         <label id="lastPageOption" class="hidden relative block cursor-pointer">
-          <input type="radio" id="lastPageInput" name="exportMode" value="extract-last" class="peer sr-only">
+          <input type="radio" name="exportMode" value="extract-last" class="peer sr-only">
           <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
             <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
             <div>
               <div class="text-base font-semibold text-gray-900">Extract last pages</div>
-              <div id="lastPageDesc" class="text-sm text-gray-500">Combine the last page of each selected file into one PDF</div>
+              <div id="lastPageDesc" class="text-sm text-gray-500">Export the last page of each selected file</div>
             </div>
           </div>
           <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+        </label>
+        <label id="lastSeparateOption" class="hidden flex items-center gap-3 w-fit ml-16 mb-1 py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
+          <input type="checkbox" id="lastSeparateCheckbox" class="peer sr-only">
+          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
+                       peer-checked:bg-gray-900 peer-checked:border-gray-900
+                       peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
+                       peer-checked:[&>.i-check]:opacity-100">
+            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+          </span>
+          <span class="text-sm text-gray-700">
+            <span class="font-medium">Save as separate files</span>
+            <span id="lastSeparateDesc" class="block text-gray-500">One PDF per file instead of a single combined PDF</span>
+          </span>
         </label>
       </div>
 
