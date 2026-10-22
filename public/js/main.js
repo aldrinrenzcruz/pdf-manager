@@ -152,8 +152,6 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !exportModal.classList.contains('hidden')) closeExportModal();
 });
 
-outputFilename.addEventListener('input', () => { userEditedName = true; });
-
 closeModal.addEventListener('click', closePreviewModal);
 prevPage.addEventListener('click', navigateToPrevPage);
 nextPage.addEventListener('click', navigateToNextPage);
@@ -247,198 +245,6 @@ function handleFileSelect(e) {
   fileInput.value = '';
 }
 
-let userEditedName = false;
-
-const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-const MONTH_RE = MONTHS.join('|');
-
-const GENERIC_TITLE_RE = /^(tax invoice|invoice|receipt|statement|bill|quotation|quote|purchase order|order confirmation|report|certificate|contract|agreement|resume|curriculum vitae|cv|letter|memo|minutes|proposal|payslip|pay slip|ticket|boarding pass)$/i;
-
-const JUNK_LINE_RES = [
-  /^page\s*\d+(\s*(of|\/)\s*\d+)?$/i,
-  /^\d+\s*(of|\/)\s*\d+$/,
-  /https?:\/\/|www\./i,
-  /\S+@\S+\.\S+/,
-  /^[\d\s\-\/.,:]+$/,
-  /^(confidential|draft|copy|original|sample|table of contents|contents)$/i
-];
-
-function sanitizeFilename(str) {
-  let s = str.replace(/[\\/:*?"<>|%\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (s.length > 80) {
-    s = s.slice(0, 80);
-    const lastSpace = s.lastIndexOf(' ');
-    if (lastSpace > 40) s = s.slice(0, lastSpace);
-  }
-  return s.replace(/[. ]+$/, '');
-}
-
-function tidyCase(str) {
-  const letters = str.replace(/[^A-Za-z]/g, '');
-  if (letters.length >= 4 && str === str.toUpperCase()) {
-    return str.toLowerCase().replace(/(^|[\s\-(])([a-z])/g, (m, a, b) => a + b.toUpperCase());
-  }
-  return str;
-}
-
-function isJunkLine(text) {
-  const cjk = /[一-鿿]/.test(text);
-  if (text.length < (cjk ? 2 : 4)) return true;
-  if (!/[A-Za-zÀ-ɏЀ-ӿ一-鿿]/.test(text)) return true;
-  if (JUNK_LINE_RES.some(re => re.test(text))) return true;
-  const digits = (text.match(/\d/g) || []).length;
-  return digits / text.length > 0.5;
-}
-
-async function extractPageLines(pdfPage) {
-  const content = await pdfPage.getTextContent();
-  const [, vy0, , vy1] = pdfPage.view;
-  const pageH = (vy1 - vy0) || 792;
-
-  const items = content.items
-    .filter(it => typeof it.str === 'string' && it.transform)
-    .map(it => ({
-      str: it.str,
-      x: it.transform[4],
-      y: it.transform[5],
-      w: it.width || 0,
-      size: Math.hypot(it.transform[0], it.transform[1]) || it.height || 0
-    }))
-    .filter(it => it.size > 0);
-
-  const lines = [];
-  for (const it of items) {
-    let line = lines.find(l => Math.abs(l.y - it.y) <= Math.max(l.size || it.size, it.size) * 0.4);
-    if (!line) {
-      line = { y: it.y, size: 0, items: [] };
-      lines.push(line);
-    }
-    line.items.push(it);
-    if (it.str.trim()) line.size = Math.max(line.size, it.size);
-  }
-
-  for (const line of lines) {
-    line.items.sort((a, b) => a.x - b.x);
-    let text = '';
-    let prevEnd = null;
-    let pendingSpace = false;
-    for (const it of line.items) {
-      if (!it.str.trim()) { pendingSpace = true; continue; }
-      if (/^\s/.test(it.str)) pendingSpace = true;
-      const gap = prevEnd === null ? 0 : it.x - prevEnd;
-      if (text && (pendingSpace || gap > it.size * 0.2)) text += ' ';
-      text += it.str.trim();
-      prevEnd = it.x + it.w;
-      pendingSpace = /\s$/.test(it.str);
-    }
-    line.text = text.replace(/\s+/g, ' ').trim();
-  }
-
-  const result = lines.filter(l => l.text).sort((a, b) => b.y - a.y);
-  return { lines: result, pageH, vy0 };
-}
-
-function bodyFontSize(lines) {
-  const counts = new Map();
-  for (const l of lines) {
-    const k = Math.round(l.size * 2) / 2;
-    counts.set(k, (counts.get(k) || 0) + l.text.length);
-  }
-  let best = 0;
-  let bestN = -1;
-  for (const [k, n] of counts) {
-    if (n > bestN) { best = k; bestN = n; }
-  }
-  return best || 1;
-}
-
-function pickTitle(lines, pageH, vy0, bodySize) {
-  const rel = y => (y - vy0) / pageH;
-  const usable = lines.filter(l => !isJunkLine(l.text) && rel(l.y) > 0.08);
-
-  const merged = [];
-  for (const l of usable) {
-    const prev = merged[merged.length - 1];
-    if (prev && prev.count < 3 &&
-      prev.size >= bodySize * 1.1 && l.size >= bodySize * 1.1 &&
-      Math.abs(prev.size - l.size) <= prev.size * 0.08 &&
-      (prev.lastY - l.y) <= l.size * 1.9) {
-      prev.text += ' ' + l.text;
-      prev.lastY = l.y;
-      prev.count++;
-    } else {
-      merged.push({ text: l.text, size: l.size, y: l.y, lastY: l.y, count: 1 });
-    }
-  }
-
-  let best = null;
-  let bestScore = 0;
-  for (const c of merged) {
-    if (c.text.length > 120) continue;
-    const ratio = c.size / bodySize;
-    if (ratio < 1.15) continue;
-    const r = rel(c.y);
-    const position = r >= 0.6 ? 1 : Math.max(0.25, r / 0.6);
-    const header = r > 0.96 ? 0.85 : 1;
-    const length = c.text.length < 8 ? 0.55 : c.text.length < 12 ? 0.85 : 1;
-    const generic = GENERIC_TITLE_RE.test(c.text.trim()) ? 1.4 : 1;
-    const score = ratio * position * header * length * generic;
-    if (score > bestScore) { best = c; bestScore = score; }
-  }
-  if (best) return best.text;
-
-  const first = merged.find(c => c.text.length >= 6 && c.text.length <= 60);
-  if (first && first.text.split(/\s+/).length <= 7 && !/[.,;!?]$/.test(first.text) && !/^[a-z]/.test(first.text)) {
-    return first.text;
-  }
-  return null;
-}
-
-function findDocDate(text) {
-  const pad = n => String(n).padStart(2, '0');
-  let m = text.match(/\b((?:19|20)\d{2})-(\d{2})-(\d{2})\b/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  m = text.match(new RegExp(`\\b(${MONTH_RE})[a-z]*\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+((?:19|20)\\d{2})\\b`, 'i'));
-  if (m) return `${m[3]}-${pad(MONTHS.indexOf(m[1].toLowerCase()) + 1)}-${pad(m[2])}`;
-  m = text.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_RE})[a-z]*\\.?,?\\s+((?:19|20)\\d{2})\\b`, 'i'));
-  if (m) return `${m[3]}-${pad(MONTHS.indexOf(m[2].toLowerCase()) + 1)}-${pad(m[1])}`;
-  return null;
-}
-
-function enrichGenericTitle(title, lines) {
-  if (!GENERIC_TITLE_RE.test(title.trim())) return title;
-  const fullText = lines.map(l => l.text).join('\n');
-  const idMatch = fullText.match(/\b(?:invoice|receipt|order|reference|ref|statement|quote|po|bill)\s*(?:no\.?|number|num|#)?\s*[:#]?\s*([A-Z0-9][A-Z0-9\-\/]*\d[A-Z0-9\-\/]*)/i);
-  if (idMatch && idMatch[1].length <= 24) return `${title} ${idMatch[1]}`;
-  const date = findDocDate(fullText);
-  return date ? `${title} ${date}` : title;
-}
-
-async function extractTitleFromPage(pdfPage) {
-  try {
-    const { lines, pageH, vy0 } = await extractPageLines(pdfPage);
-    if (lines.length === 0) return null;
-    const title = pickTitle(lines, pageH, vy0, bodyFontSize(lines));
-    if (!title) return null;
-    return sanitizeFilename(tidyCase(enrichGenericTitle(title, lines))) || null;
-  } catch (e) {
-    return null;
-  }
-}
-
-async function autoNameFromFirstPage() {
-  if (userEditedName) return;
-  const first = pageManager.getAllPages()[0];
-  if (!first) return;
-
-  const title = await extractTitleFromPage(first.pdfPage);
-  if (userEditedName) return;
-
-  const name = title ||
-    sanitizeFilename(pageManager.originalFiles[first.fileIndex].name.replace(/\.pdf$/i, ''));
-  outputFilename.value = name;
-}
-
 // Queue batches so adding more PDFs while earlier ones are still loading
 // can't interleave pages or file indices.
 function processFiles(files) {
@@ -461,7 +267,6 @@ async function processFilesNow(files) {
 
   const isFirstUpload = pageManager.getAllPages().length === 0;
   if (isFirstUpload) {
-    userEditedName = false;
     outputFilename.value = files[0].name.replace(/\.pdf$/i, '');
   }
 
@@ -483,8 +288,6 @@ async function processFilesNow(files) {
     updateStats();
     updatePageNumbers();
   }
-
-  autoNameFromFirstPage();
 }
 
 async function loadPDF(file, fileIndex) {
