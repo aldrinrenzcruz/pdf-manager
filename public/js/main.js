@@ -1,9 +1,14 @@
+AppData.init();
+
 class PDFPageManager {
-  constructor() {
-    this.pages = [];
-    this.nextId = 1;
-    this.originalFiles = [];
-  }
+  get pages() { return AppData.temp.pages; }
+  set pages(value) { AppData.temp.pages = value; }
+
+  get nextId() { return AppData.temp.nextId; }
+  set nextId(value) { AppData.temp.nextId = value; }
+
+  get originalFiles() { return AppData.temp.originalFiles; }
+  set originalFiles(value) { AppData.temp.originalFiles = value; }
 
   addPage(pageData) {
     const page = {
@@ -62,8 +67,6 @@ class PDFPageManager {
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const pageManager = new PDFPageManager();
-let busy = false;
-let loadQueue = Promise.resolve();
 
 const mainContent = document.getElementById("main-content");
 const uploadZone = document.getElementById("upload-zone");
@@ -80,7 +83,10 @@ const totalPagesSpan = document.getElementById("total-pages");
 const selectedPagesSpan = document.getElementById("selected-pages");
 
 const viewToggle = document.getElementById("view-toggle");
-let fileView = false;
+
+viewToggle.querySelectorAll(".view-opt").forEach(b => {
+  b.setAttribute("aria-pressed", String((b.dataset.view === "files") === !!AppData.data.fileView));
+});
 
 const exportModal = document.getElementById("export-modal");
 const exportCount = document.getElementById("export-count");
@@ -93,7 +99,6 @@ const extractHeader = document.getElementById("extract-header");
 const extractSubOptions = document.getElementById("extract-sub-options");
 const separateOption = document.getElementById("separate-option");
 const separateCheckbox = document.getElementById("separate-checkbox");
-let separateAuto = false;
 
 const extractPagesInput = document.getElementById("extract-pages-input");
 const extractFromInput = document.getElementById("extract-from-input");
@@ -102,7 +107,6 @@ const extractPagesFields = document.getElementById("extract-pages-fields");
 const extractRangeFields = document.getElementById("extract-range-fields");
 const extractPagesWarning = document.getElementById("extract-pages-warning");
 const extractRangeWarning = document.getElementById("extract-range-warning");
-let extractError = null;
 
 const previewModal = document.getElementById("preview-modal");
 const closeModal = document.getElementById("close-modal");
@@ -119,14 +123,10 @@ const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const zoomLevel = document.getElementById("zoom-level");
 
-let currentPreviewPageId = null;
-let previewRenderToken = 0;
-
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 6;
 const ZOOM_STEP = 1.25;
 const MAX_CANVAS_PIXELS = 16000000;
-let previewZoom = 1;
 
 addPdfsBtn.addEventListener("click", openFilePicker);
 document.getElementById("upload-box").addEventListener("click", openFilePicker);
@@ -138,7 +138,8 @@ selectAllCheckbox.addEventListener("change", handleSelectAll);
 viewToggle.addEventListener("click", (e) => {
   const btn = e.target.closest(".view-opt");
   if (!btn) return;
-  fileView = btn.dataset.view === "files";
+  AppData.data.fileView = btn.dataset.view === "files";
+  AppData.save();
   viewToggle.querySelectorAll(".view-opt").forEach(b => {
     b.setAttribute("aria-pressed", String(b === btn));
   });
@@ -187,7 +188,7 @@ extractHeader.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectExtract(); }
 });
 
-separateCheckbox.addEventListener("change", () => { separateAuto = false; });
+separateCheckbox.addEventListener("change", () => { AppData.temp.separateAuto = false; });
 
 exportModal.addEventListener("mousedown", (e) => {
   if (e.target === exportModal) closeExportModal();
@@ -204,21 +205,19 @@ modalRotateBtn.addEventListener("click", rotatePreviewPage);
 modalDeleteBtn.addEventListener("click", deletePreviewPage);
 modalOpenBtn.addEventListener("click", openPreviewInNewTab);
 
-let modalMouseDownTarget = null;
-modalCanvas.addEventListener("mousedown", (e) => { modalMouseDownTarget = e.target; });
+modalCanvas.addEventListener("mousedown", (e) => { AppData.temp.modalMouseDownTarget = e.target; });
 
 modalCanvas.addEventListener("click", (e) => {
-  if (e.target !== modalCanvas || modalMouseDownTarget !== modalCanvas) return;
+  if (e.target !== modalCanvas || AppData.temp.modalMouseDownTarget !== modalCanvas) return;
   if (e.clientY < previewToolbar.getBoundingClientRect().bottom) return;
   closePreviewModal();
 });
 
-let resizeTimer;
 window.addEventListener("resize", () => {
-  if (!currentPreviewPageId) return;
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    const page = pageManager.getPage(currentPreviewPageId);
+  if (!AppData.temp.currentPreviewPageId) return;
+  clearTimeout(AppData.temp.resizeTimer);
+  AppData.temp.resizeTimer = setTimeout(() => {
+    const page = pageManager.getPage(AppData.temp.currentPreviewPageId);
     if (page) renderPreviewPage(page);
   }, 150);
 });
@@ -233,19 +232,18 @@ document.addEventListener("keydown", (e) => {
   } else if (e.key === "ArrowRight") {
     navigateToNextPage();
   } else if (e.key === "+" || e.key === "=") {
-    setPreviewZoom(previewZoom * ZOOM_STEP);
+    setPreviewZoom(AppData.temp.previewZoom * ZOOM_STEP);
   } else if (e.key === "-") {
-    setPreviewZoom(previewZoom / ZOOM_STEP);
+    setPreviewZoom(AppData.temp.previewZoom / ZOOM_STEP);
   } else if (e.key === "0") {
     setPreviewZoom(1);
   }
 });
 
-zoomInBtn.addEventListener("click", () => setPreviewZoom(previewZoom * ZOOM_STEP));
-zoomOutBtn.addEventListener("click", () => setPreviewZoom(previewZoom / ZOOM_STEP));
+zoomInBtn.addEventListener("click", () => setPreviewZoom(AppData.temp.previewZoom * ZOOM_STEP));
+zoomOutBtn.addEventListener("click", () => setPreviewZoom(AppData.temp.previewZoom / ZOOM_STEP));
 zoomLevel.addEventListener("click", () => setPreviewZoom(1));
 
-let lastWheelZoom = 0;
 const WHEEL_ZOOM_THROTTLE_MS = 120;
 previewModal.addEventListener("wheel", (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
@@ -253,11 +251,11 @@ previewModal.addEventListener("wheel", (e) => {
   if (!e.deltaY) return;
 
   const now = performance.now();
-  if (now - lastWheelZoom < WHEEL_ZOOM_THROTTLE_MS) return;
-  lastWheelZoom = now;
+  if (now - AppData.temp.lastWheelZoom < WHEEL_ZOOM_THROTTLE_MS) return;
+  AppData.temp.lastWheelZoom = now;
 
-  if (e.deltaY < 0) setPreviewZoom(previewZoom * ZOOM_STEP);
-  else setPreviewZoom(previewZoom / ZOOM_STEP);
+  if (e.deltaY < 0) setPreviewZoom(AppData.temp.previewZoom * ZOOM_STEP);
+  else setPreviewZoom(AppData.temp.previewZoom / ZOOM_STEP);
 }, { passive: false });
 
 uploadZone.addEventListener("dragover", (e) => {
@@ -288,10 +286,10 @@ function handleFileSelect(e) {
 }
 
 function processFiles(files) {
-  loadQueue = loadQueue
+  AppData.temp.loadQueue = AppData.temp.loadQueue
     .then(() => processFilesNow(files))
     .catch(error => console.error("Failed to process files:", error));
-  return loadQueue;
+  return AppData.temp.loadQueue;
 }
 
 async function processFilesNow(files) {
@@ -314,7 +312,7 @@ async function processFilesNow(files) {
   pagesGrid.classList.remove("hidden");
   selectAllContainer.classList.remove("hidden");
 
-  busy = true;
+  AppData.temp.busy = true;
   updateStats();
 
   try {
@@ -324,7 +322,7 @@ async function processFilesNow(files) {
       await loadPDF(file, fileIndex);
     }
   } finally {
-    busy = false;
+    AppData.temp.busy = false;
     updateStats();
     updatePageNumbers();
   }
@@ -449,7 +447,7 @@ async function addPageToGrid(pageObj) {
 
   checkbox.addEventListener("change", (e) => {
     e.stopPropagation();
-    if (fileView) {
+    if (AppData.data.fileView) {
       const page = pageManager.getPage(pageObj.id);
       pageManager.getAllPages()
         .filter(p => p.fileIndex === page.fileIndex)
@@ -474,7 +472,7 @@ async function addPageToGrid(pageObj) {
   deleteBtn.addEventListener("click", (e) => {
     e.stopPropagation();
 
-    if (fileView) {
+    if (AppData.data.fileView) {
       const page = pageManager.getPage(pageObj.id);
       const filePages = pageManager.getAllPages().filter(p => p.fileIndex === page.fileIndex);
       const pageLabel = filePages.length === 1 ? "1 page" : `all ${filePages.length} pages`;
@@ -500,13 +498,6 @@ async function addPageToGrid(pageObj) {
   gridContainer.appendChild(pageDiv);
 }
 
-let draggedPageId = null;
-let dragCache = [];
-let dragGap = 16;
-let dragPlan = null;
-let dragPointer = { x: 0, y: 0 };
-let autoScrollRaf = null;
-
 const dropIndicator = document.createElement("div");
 dropIndicator.className = "drop-indicator";
 pagesGrid.appendChild(dropIndicator);
@@ -517,14 +508,14 @@ mainContent.addEventListener("dragleave", handleDragLeave);
 
 function handleDragStart(e) {
   const card = e.currentTarget;
-  draggedPageId = Number(card.dataset.pageId);
-  dragPointer = { x: e.clientX, y: e.clientY };
+  AppData.temp.draggedPageId = Number(card.dataset.pageId);
+  AppData.temp.dragPointer = { x: e.clientX, y: e.clientY };
 
   e.dataTransfer.effectAllowed = "move";
-  e.dataTransfer.setData("text/plain", String(draggedPageId));
+  e.dataTransfer.setData("text/plain", String(AppData.temp.draggedPageId));
 
-  dragGap = parseFloat(getComputedStyle(pagesGrid).columnGap) || 16;
-  dragCache = Array.from(pagesGrid.querySelectorAll(".pdf-page:not(.hidden)")).map(el => ({
+  AppData.temp.dragGap = parseFloat(getComputedStyle(pagesGrid).columnGap) || 16;
+  AppData.temp.dragCache = Array.from(pagesGrid.querySelectorAll(".pdf-page:not(.hidden)")).map(el => ({
     id: Number(el.dataset.pageId),
     x: el.offsetLeft,
     y: el.offsetTop,
@@ -538,27 +529,27 @@ function handleDragStart(e) {
 }
 
 function handleDragOver(e) {
-  if (draggedPageId === null) return;
+  if (AppData.temp.draggedPageId === null) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "move";
-  dragPointer = { x: e.clientX, y: e.clientY };
+  AppData.temp.dragPointer = { x: e.clientX, y: e.clientY };
   updateDropTarget();
 }
 
 function handleDragLeave(e) {
-  if (draggedPageId === null) return;
+  if (AppData.temp.draggedPageId === null) return;
   if (!mainContent.contains(e.relatedTarget)) {
-    dragPlan = null;
+    AppData.temp.dragPlan = null;
     dropIndicator.classList.remove("visible");
   }
 }
 
 function handleDrop(e) {
-  if (draggedPageId === null) return;
+  if (AppData.temp.draggedPageId === null) return;
   e.preventDefault();
 
-  const draggedId = draggedPageId;
-  const plan = dragPlan;
+  const draggedId = AppData.temp.draggedPageId;
+  const plan = AppData.temp.dragPlan;
   const card = pagesGrid.querySelector(`[data-page-id="${draggedId}"]`);
   finishDrag();
   if (!plan || !card) return;
@@ -567,7 +558,7 @@ function handleDrop(e) {
   if (!target) return;
 
   animateReorder(() => {
-    if (fileView) {
+    if (AppData.data.fileView) {
       moveFileGroup(draggedId, plan.targetId, plan.after);
     } else {
       pageManager.reorderPages(plan.fromIndex, plan.toIndex);
@@ -584,25 +575,25 @@ function handleDragEnd() {
 }
 
 function finishDrag() {
-  draggedPageId = null;
-  dragPlan = null;
-  dragCache = [];
+  AppData.temp.draggedPageId = null;
+  AppData.temp.dragPlan = null;
+  AppData.temp.dragCache = [];
   dropIndicator.classList.remove("visible");
-  if (autoScrollRaf) {
-    cancelAnimationFrame(autoScrollRaf);
-    autoScrollRaf = null;
+  if (AppData.temp.autoScrollRaf) {
+    cancelAnimationFrame(AppData.temp.autoScrollRaf);
+    AppData.temp.autoScrollRaf = null;
   }
   pagesGrid.querySelectorAll(".pdf-page.dragging").forEach(el => el.classList.remove("dragging"));
 }
 
 function updateDropTarget() {
   const grid = pagesGrid.getBoundingClientRect();
-  const x = dragPointer.x - grid.left;
-  const y = dragPointer.y - grid.top;
+  const x = AppData.temp.dragPointer.x - grid.left;
+  const y = AppData.temp.dragPointer.y - grid.top;
 
   let best = null;
   let bestDist = Infinity;
-  for (const c of dragCache) {
+  for (const c of AppData.temp.dragCache) {
     const dx = Math.max(c.x - x, 0, x - (c.x + c.w));
     const dy = Math.max(c.y - y, 0, y - (c.y + c.h));
     const dist = Math.hypot(dx, dy);
@@ -613,26 +604,26 @@ function updateDropTarget() {
   }
 
   if (!best) {
-    dragPlan = null;
+    AppData.temp.dragPlan = null;
     dropIndicator.classList.remove("visible");
     return;
   }
 
   const after = x > best.x + best.w / 2;
-  const pages = fileView ? representativePages() : pageManager.getAllPages();
-  const fromIndex = pages.findIndex(p => p.id === draggedPageId);
+  const pages = AppData.data.fileView ? representativePages() : pageManager.getAllPages();
+  const fromIndex = pages.findIndex(p => p.id === AppData.temp.draggedPageId);
   let toIndex = pages.findIndex(p => p.id === best.id) + (after ? 1 : 0);
   if (fromIndex < toIndex) toIndex--;
 
   if (fromIndex === -1 || toIndex === fromIndex) {
-    dragPlan = null;
+    AppData.temp.dragPlan = null;
     dropIndicator.classList.remove("visible");
     return;
   }
 
-  dragPlan = { targetId: best.id, after, fromIndex, toIndex };
+  AppData.temp.dragPlan = { targetId: best.id, after, fromIndex, toIndex };
 
-  const left = (after ? best.x + best.w + dragGap / 2 : best.x - dragGap / 2) - 2;
+  const left = (after ? best.x + best.w + AppData.temp.dragGap / 2 : best.x - AppData.temp.dragGap / 2) - 2;
   dropIndicator.style.left = `${left}px`;
   dropIndicator.style.top = `${best.y}px`;
   dropIndicator.style.height = `${best.h}px`;
@@ -644,17 +635,17 @@ function startAutoScroll() {
   const maxSpeed = 18;
 
   const step = () => {
-    if (draggedPageId === null) {
-      autoScrollRaf = null;
+    if (AppData.temp.draggedPageId === null) {
+      AppData.temp.autoScrollRaf = null;
       return;
     }
 
     const rect = mainContent.getBoundingClientRect();
     let speed = 0;
-    if (dragPointer.y < rect.top + zone) {
-      speed = -maxSpeed * Math.min(1, (rect.top + zone - dragPointer.y) / zone);
-    } else if (dragPointer.y > rect.bottom - zone) {
-      speed = maxSpeed * Math.min(1, (dragPointer.y - (rect.bottom - zone)) / zone);
+    if (AppData.temp.dragPointer.y < rect.top + zone) {
+      speed = -maxSpeed * Math.min(1, (rect.top + zone - AppData.temp.dragPointer.y) / zone);
+    } else if (AppData.temp.dragPointer.y > rect.bottom - zone) {
+      speed = maxSpeed * Math.min(1, (AppData.temp.dragPointer.y - (rect.bottom - zone)) / zone);
     }
 
     if (speed) {
@@ -662,10 +653,10 @@ function startAutoScroll() {
       updateDropTarget();
     }
 
-    autoScrollRaf = requestAnimationFrame(step);
+    AppData.temp.autoScrollRaf = requestAnimationFrame(step);
   };
 
-  autoScrollRaf = requestAnimationFrame(step);
+  AppData.temp.autoScrollRaf = requestAnimationFrame(step);
 }
 
 function animateReorder(mutate) {
@@ -709,10 +700,10 @@ function applyView() {
     const page = pageManager.getPage(id);
     if (!page) return;
 
-    el.classList.toggle("hidden", fileView && !reps.has(id));
+    el.classList.toggle("hidden", AppData.data.fileView && !reps.has(id));
 
     const badge = el.querySelector(".page-number-badge");
-    if (fileView) {
+    if (AppData.data.fileView) {
       if (!el._nameEl) el._nameEl = createFileNameEl(el, page.fileName);
       if (badge.firstChild !== el._nameEl) badge.replaceChildren(el._nameEl);
     } else {
@@ -731,7 +722,7 @@ function syncSelectionUI() {
     if (!page) return;
 
     const cb = el.querySelector(".page-checkbox");
-    if (fileView) {
+    if (AppData.data.fileView) {
       const filePages = pages.filter(p => p.fileIndex === page.fileIndex);
       const count = filePages.filter(p => p.selected).length;
       const all = count === filePages.length;
@@ -838,7 +829,7 @@ function updateStats() {
   const total = pages.length;
   const selected = pageManager.getSelectedPages().length;
 
-  if (fileView) {
+  if (AppData.data.fileView) {
     totalPagesSpan.textContent = new Set(pages.map(p => p.fileIndex)).size;
     selectedPagesSpan.textContent = new Set(pages.filter(p => p.selected).map(p => p.fileIndex)).size;
   } else {
@@ -848,10 +839,10 @@ function updateStats() {
   selectAllCheckbox.checked = total > 0 && selected === total;
   selectAllCheckbox.indeterminate = selected > 0 && selected < total;
 
-  exportBtn.disabled = busy || selected === 0;
-  exportConfirmBtn.disabled = busy || selected === 0 || !!extractError;
-  deleteSelectedBtn.disabled = busy || selected === 0;
-  deleteLastPagesBtn.disabled = busy || selected === 0;
+  exportBtn.disabled = AppData.temp.busy || selected === 0;
+  exportConfirmBtn.disabled = AppData.temp.busy || selected === 0 || !!AppData.temp.extractError;
+  deleteSelectedBtn.disabled = AppData.temp.busy || selected === 0;
+  deleteLastPagesBtn.disabled = AppData.temp.busy || selected === 0;
 }
 
 async function loadSourcePdfs(pages) {
@@ -880,31 +871,31 @@ function openExportModal() {
   const count = pageManager.getSelectedPages().length;
   if (count === 0) return;
 
-  if (fileView) {
+  if (AppData.data.fileView) {
     const fileCount = selectedFileOrder().length;
     exportCount.textContent = fileCount === 1 ? "1 file" : `${fileCount} files`;
   } else {
     exportCount.textContent = count === 1 ? "1 page" : `${count} pages`;
   }
 
-  document.getElementById("merge-desc").textContent = fileView
+  document.getElementById("merge-desc").textContent = AppData.data.fileView
     ? "Combine all pages of the selected files into one PDF"
     : "Combine selected pages into one PDF";
-  document.getElementById("extract-only-desc").textContent = fileView
+  document.getElementById("extract-only-desc").textContent = AppData.data.fileView
     ? "Export each selected file as its own PDF"
     : "Export each selected page as its own PDF";
 
-  document.getElementById("extract-first-option").classList.toggle("hidden", !fileView);
-  document.getElementById("extract-last-option").classList.toggle("hidden", !fileView);
+  document.getElementById("extract-first-option").classList.toggle("hidden", !AppData.data.fileView);
+  document.getElementById("extract-last-option").classList.toggle("hidden", !AppData.data.fileView);
 
-  document.getElementById("extract-pages-desc").textContent = fileView
+  document.getElementById("extract-pages-desc").textContent = AppData.data.fileView
     ? "Export the same page numbers from each selected file"
     : "Export only the page numbers you enter";
-  document.getElementById("extract-range-desc").textContent = fileView
+  document.getElementById("extract-range-desc").textContent = AppData.data.fileView
     ? "Export the same page range from each selected file"
     : "Export every page from one number to another";
 
-  if (fileView) {
+  if (AppData.data.fileView) {
     const fileCount = selectedFileOrder().length;
     const ok = fileCount >= 2 && fileCount % 2 === 0;
 
@@ -934,21 +925,21 @@ function updateExportSubOptions() {
 
   const isExtract = !!mode && mode.startsWith("extract");
 
-  pairMergeOption.classList.toggle("hidden", !(fileView && isMerge));
+  pairMergeOption.classList.toggle("hidden", !(AppData.data.fileView && isMerge));
   extractSubOptions.classList.toggle("hidden", !isExtract);
   extractHeader.classList.toggle("bg-gray-100", isExtract);
 
   if (isMerge) {
     separateCheckbox.checked = false;
-    separateAuto = false;
+    AppData.temp.separateAuto = false;
   } else if (mode === "extract-only") {
     if (!separateCheckbox.checked) {
       separateCheckbox.checked = true;
-      separateAuto = true;
+      AppData.temp.separateAuto = true;
     }
-  } else if (separateAuto) {
+  } else if (AppData.temp.separateAuto) {
     separateCheckbox.checked = false;
-    separateAuto = false;
+    AppData.temp.separateAuto = false;
   }
 
   const locked = isMerge || mode === "extract-only";
@@ -975,7 +966,7 @@ function handleExportConfirm() {
   closeExportModal();
 
   if (mode === "extract-only") {
-    if (fileView) handleSeparateFiles();
+    if (AppData.data.fileView) handleSeparateFiles();
     else handleSeparatePages();
   } else if (mode === "extract-first") {
     handleExtractEdgePages("first");
@@ -983,7 +974,7 @@ function handleExportConfirm() {
     handleExtractEdgePages("last");
   } else if (mode === "extract-pages" || mode === "extract-range") {
     handleExtractSpecific();
-  } else if (fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
+  } else if (AppData.data.fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
     handleMergeInPairs();
   } else {
     handleMerge();
@@ -994,7 +985,7 @@ async function handleMerge() {
   const pagesToMerge = pageManager.getSelectedPages();
   if (pagesToMerge.length === 0) return;
 
-  busy = true;
+  AppData.temp.busy = true;
   updateStats();
 
   try {
@@ -1016,7 +1007,7 @@ async function handleMerge() {
     console.error("Merge failed:", error);
     alert(`Error merging PDF: ${error.message}\n\nCheck console for details.`);
   } finally {
-    busy = false;
+    AppData.temp.busy = false;
     updateStats();
   }
 }
@@ -1025,7 +1016,7 @@ async function handleSeparatePages() {
   const pagesToSeparate = pageManager.getSelectedPages();
   if (pagesToSeparate.length === 0) return;
 
-  busy = true;
+  AppData.temp.busy = true;
   updateStats();
 
   try {
@@ -1068,7 +1059,7 @@ async function handleSeparatePages() {
     console.error("Separate pages failed:", error);
     alert(`Error separating pages: ${error.message}\n\nCheck console for details.`);
   } finally {
-    busy = false;
+    AppData.temp.busy = false;
     updateStats();
   }
 }
@@ -1091,7 +1082,7 @@ async function handleMergeInPairs() {
   const selected = pageManager.getSelectedPages();
   const pagesOf = fileIndex => selected.filter(p => p.fileIndex === fileIndex);
 
-  busy = true;
+  AppData.temp.busy = true;
   updateStats();
 
   try {
@@ -1132,7 +1123,7 @@ async function handleMergeInPairs() {
     console.error("Merge in pairs failed:", error);
     alert(`Error merging files: ${error.message}\n\nCheck console for details.`);
   } finally {
-    busy = false;
+    AppData.temp.busy = false;
     updateStats();
   }
 }
@@ -1147,7 +1138,7 @@ async function handleSeparateFiles() {
     groups.get(page.fileIndex).push(page);
   }
 
-  busy = true;
+  AppData.temp.busy = true;
   updateStats();
 
   try {
@@ -1185,7 +1176,7 @@ async function handleSeparateFiles() {
     console.error("Separate files failed:", error);
     alert(`Error saving files: ${error.message}\n\nCheck console for details.`);
   } finally {
-    busy = false;
+    AppData.temp.busy = false;
     updateStats();
   }
 }
@@ -1207,7 +1198,7 @@ async function handleExtractEdgePages(which) {
   }
   const edgePages = selectedFileOrder().map(fileIndex => edgeByFile.get(fileIndex));
 
-  busy = true;
+  AppData.temp.busy = true;
   updateStats();
 
   try {
@@ -1253,7 +1244,7 @@ async function handleExtractEdgePages(which) {
     console.error(`Extract ${which} pages failed:`, error);
     alert(`Error extracting ${which} pages: ${error.message}\n\nCheck console for details.`);
   } finally {
-    busy = false;
+    AppData.temp.busy = false;
     updateStats();
   }
 }
@@ -1305,7 +1296,7 @@ function getExtractRequest() {
   const all = pageManager.getAllPages();
   const selected = pageManager.getSelectedPages();
 
-  if (fileView) {
+  if (AppData.data.fileView) {
     const groups = [];
     const tooShort = [];
 
@@ -1339,7 +1330,7 @@ function getExtractRequest() {
 
 function updateExtractValidity() {
   const req = getExtractRequest();
-  extractError = req.error || null;
+  AppData.temp.extractError = req.error || null;
 
   const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
   const target = mode === "extract-range" ? extractRangeWarning : extractPagesWarning;
@@ -1353,7 +1344,7 @@ function updateExtractValidity() {
 
   if (show) target.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
-  exportConfirmBtn.disabled = busy || pageManager.getSelectedPages().length === 0 || !!extractError;
+  exportConfirmBtn.disabled = AppData.temp.busy || pageManager.getSelectedPages().length === 0 || !!AppData.temp.extractError;
 }
 
 async function handleExtractSpecific() {
@@ -1362,7 +1353,7 @@ async function handleExtractSpecific() {
 
   const groups = separateCheckbox.checked ? req.groups : [req.groups.flat()];
 
-  busy = true;
+  AppData.temp.busy = true;
   updateStats();
 
   try {
@@ -1398,7 +1389,7 @@ async function handleExtractSpecific() {
     console.error("Extract specific pages failed:", error);
     alert(`Error extracting pages: ${error.message}\n\nCheck console for details.`);
   } finally {
-    busy = false;
+    AppData.temp.busy = false;
     updateStats();
   }
 }
@@ -1435,7 +1426,7 @@ async function openPreviewModal(pageId) {
   const page = pageManager.getPage(pageId);
   if (!page) return;
 
-  currentPreviewPageId = pageId;
+  AppData.temp.currentPreviewPageId = pageId;
 
   const scope = previewScopePages(pageId);
   const pageIndex = scope.findIndex(p => p.id === pageId);
@@ -1448,23 +1439,23 @@ async function openPreviewModal(pageId) {
 }
 
 function closePreviewModal() {
-  previewRenderToken++;
+  AppData.temp.previewRenderToken++;
   previewModal.classList.add("hidden");
-  currentPreviewPageId = null;
+  AppData.temp.currentPreviewPageId = null;
   modalCanvas.innerHTML = "";
 }
 
 function setPreviewZoom(z) {
-  const page = pageManager.getPage(currentPreviewPageId);
+  const page = pageManager.getPage(AppData.temp.currentPreviewPageId);
   if (!page) return;
   const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
-  if (Math.abs(next - previewZoom) < 0.001) return;
-  previewZoom = next;
+  if (Math.abs(next - AppData.temp.previewZoom) < 0.001) return;
+  AppData.temp.previewZoom = next;
   renderPreviewPage(page);
 }
 
 async function renderPreviewPage(page, { resetView = false } = {}) {
-  const token = ++previewRenderToken;
+  const token = ++AppData.temp.previewRenderToken;
 
   const cx = modalCanvas.scrollWidth ? (modalCanvas.scrollLeft + modalCanvas.clientWidth / 2) / modalCanvas.scrollWidth : 0.5;
   const cy = modalCanvas.scrollHeight ? (modalCanvas.scrollTop + modalCanvas.clientHeight / 2) / modalCanvas.scrollHeight : 0.5;
@@ -1475,7 +1466,7 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
 
   const base = page.pdfPage.getViewport({ scale: 1, rotation: page.rotation });
   const fit = Math.min(availW / base.width, availH / base.height);
-  const cssScale = fit * previewZoom;
+  const cssScale = fit * AppData.temp.previewZoom;
   const dpr = window.devicePixelRatio || 1;
 
   let renderScale = cssScale * dpr;
@@ -1497,7 +1488,7 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
     return;
   }
 
-  if (token !== previewRenderToken) return;
+  if (token !== AppData.temp.previewRenderToken) return;
 
   const wrapper = document.createElement("div");
   wrapper.className = "preview-page";
@@ -1528,7 +1519,7 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
 async function renderPreviewTextLayer(page, container, scale, token) {
   try {
     const textContent = await page.pdfPage.getTextContent();
-    if (token !== previewRenderToken) return;
+    if (token !== AppData.temp.previewRenderToken) return;
 
     const viewport = page.pdfPage.getViewport({ scale, rotation: page.rotation });
     await pdfjsLib.renderTextLayer({ textContentSource: textContent, container, viewport }).promise;
@@ -1537,18 +1528,18 @@ async function renderPreviewTextLayer(page, container, scale, token) {
   }
 }
 
-function previewScopePages(pageId = currentPreviewPageId) {
+function previewScopePages(pageId = AppData.temp.currentPreviewPageId) {
   const all = pageManager.getAllPages();
-  if (!fileView) return all;
+  if (!AppData.data.fileView) return all;
   const page = pageManager.getPage(pageId);
   return page ? all.filter(p => p.fileIndex === page.fileIndex) : all;
 }
 
 function navigateToPrevPage() {
-  if (!currentPreviewPageId) return;
+  if (!AppData.temp.currentPreviewPageId) return;
 
   const allPages = previewScopePages();
-  const currentIndex = allPages.findIndex(p => p.id === currentPreviewPageId);
+  const currentIndex = allPages.findIndex(p => p.id === AppData.temp.currentPreviewPageId);
 
   if (currentIndex > 0) {
     openPreviewModal(allPages[currentIndex - 1].id);
@@ -1556,10 +1547,10 @@ function navigateToPrevPage() {
 }
 
 function navigateToNextPage() {
-  if (!currentPreviewPageId) return;
+  if (!AppData.temp.currentPreviewPageId) return;
 
   const allPages = previewScopePages();
-  const currentIndex = allPages.findIndex(p => p.id === currentPreviewPageId);
+  const currentIndex = allPages.findIndex(p => p.id === AppData.temp.currentPreviewPageId);
 
   if (currentIndex < allPages.length - 1) {
     openPreviewModal(allPages[currentIndex + 1].id);
@@ -1568,7 +1559,7 @@ function navigateToNextPage() {
 
 function updateNavigationButtons() {
   const allPages = previewScopePages();
-  const currentIndex = allPages.findIndex(p => p.id === currentPreviewPageId);
+  const currentIndex = allPages.findIndex(p => p.id === AppData.temp.currentPreviewPageId);
 
   prevPage.style.opacity = currentIndex > 0 ? "1" : "0.3";
   prevPage.style.cursor = currentIndex > 0 ? "pointer" : "not-allowed";
@@ -1577,29 +1568,27 @@ function updateNavigationButtons() {
   nextPage.style.cursor = currentIndex < allPages.length - 1 ? "pointer" : "not-allowed";
 }
 
-const sourceUrls = new Map();
-
 function openPreviewInNewTab() {
-  const page = pageManager.getPage(currentPreviewPageId);
+  const page = pageManager.getPage(AppData.temp.currentPreviewPageId);
   if (!page) return;
 
-  let url = sourceUrls.get(page.fileIndex);
+  let url = AppData.temp.sourceUrls.get(page.fileIndex);
   if (!url) {
     url = URL.createObjectURL(pageManager.originalFiles[page.fileIndex]);
-    sourceUrls.set(page.fileIndex, url);
+    AppData.temp.sourceUrls.set(page.fileIndex, url);
   }
 
   window.open(`${url}#page=${page.originalPageNum}`, "_blank", "noopener");
 }
 
 function deletePreviewPage() {
-  if (!currentPreviewPageId) return;
+  if (!AppData.temp.currentPreviewPageId) return;
 
   const allPages = previewScopePages();
-  const index = allPages.findIndex(p => p.id === currentPreviewPageId);
+  const index = allPages.findIndex(p => p.id === AppData.temp.currentPreviewPageId);
   if (index === -1) return;
 
-  const removedId = currentPreviewPageId;
+  const removedId = AppData.temp.currentPreviewPageId;
   const nextPageObj = allPages[index + 1] || allPages[index - 1] || null;
 
   pageManager.removePage(removedId);
@@ -1615,16 +1604,16 @@ function deletePreviewPage() {
 }
 
 async function rotatePreviewPage() {
-  if (!currentPreviewPageId) return;
+  if (!AppData.temp.currentPreviewPageId) return;
 
-  const page = pageManager.getPage(currentPreviewPageId);
+  const page = pageManager.getPage(AppData.temp.currentPreviewPageId);
   if (!page) return;
 
-  pageManager.rotatePage(currentPreviewPageId, 90);
+  pageManager.rotatePage(AppData.temp.currentPreviewPageId, 90);
 
   await renderPreviewPage(page);
 
-  const pageDiv = document.querySelector(`[data-page-id="${currentPreviewPageId}"]`);
+  const pageDiv = document.querySelector(`[data-page-id="${AppData.temp.currentPreviewPageId}"]`);
   if (pageDiv) {
     const canvasWrapper = pageDiv.querySelector(".p-2 > div");
     const newCanvas = await renderPage(page.pdfPage, page.rotation);
