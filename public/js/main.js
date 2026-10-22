@@ -89,8 +89,11 @@ const exportCancelBtn = document.getElementById('exportCancelBtn');
 const exportConfirmBtn = document.getElementById('exportConfirmBtn');
 const pairMergeOption = document.getElementById('pairMergeOption');
 const pairMergeCheckbox = document.getElementById('pairMergeCheckbox');
-const lastSeparateOption = document.getElementById('lastSeparateOption');
-const lastSeparateCheckbox = document.getElementById('lastSeparateCheckbox');
+const extractHeader = document.getElementById('extractHeader');
+const extractSubOptions = document.getElementById('extractSubOptions');
+const separateOption = document.getElementById('separateOption');
+const separateCheckbox = document.getElementById('separateCheckbox');
+let separateAuto = false; // true when the tick was set automatically by "Extract only"
 
 const previewModal = document.getElementById('previewModal');
 const closeModal = document.getElementById('closeModal');
@@ -143,6 +146,22 @@ exportConfirmBtn.addEventListener('click', handleExportConfirm);
 exportModal.addEventListener('change', (e) => {
   if (e.target.name === 'exportMode') updateExportSubOptions();
 });
+
+// Clicking the Extract header selects its default sub item (Extract only)
+function selectExtract() {
+  const current = document.querySelector('input[name="exportMode"]:checked')?.value || '';
+  if (current.startsWith('extract')) return;
+  const radio = document.querySelector('input[name="exportMode"][value="extract-only"]');
+  radio.checked = true;
+  updateExportSubOptions();
+}
+extractHeader.addEventListener('click', selectExtract);
+extractHeader.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectExtract(); }
+});
+
+// A manual tick/untick means the tick is no longer "ours" to remove
+separateCheckbox.addEventListener('change', () => { separateAuto = false; });
 
 exportModal.addEventListener('mousedown', (e) => {
   if (e.target === exportModal) closeExportModal();
@@ -902,16 +921,17 @@ function openExportModal() {
     exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
   }
 
-  // Merge and Save separately are shown in both views, worded for the current one.
-  // Extract last pages is file-level, so it's only offered in Files view.
+  // Merge and Extract only are shown in both views, worded for the current one.
+  // Extract first/last pages are file-level, so they're only offered in Files view.
   document.getElementById('mergeDesc').textContent = fileView
     ? 'Combine all pages of the selected files into one PDF'
     : 'Combine selected pages into one PDF';
-  document.getElementById('separateDesc').textContent = fileView
-    ? 'Save each selected file as its own PDF'
-    : 'Save each selected page as its own PDF';
+  document.getElementById('extractOnlyDesc').textContent = fileView
+    ? 'Export each selected file as its own PDF'
+    : 'Export each selected page as its own PDF';
 
-  document.getElementById('lastPageOption').classList.toggle('hidden', !fileView);
+  document.getElementById('extractFirstOption').classList.toggle('hidden', !fileView);
+  document.getElementById('extractLastOption').classList.toggle('hidden', !fileView);
 
   // Merge in pairs (checkbox under Merge): Files view only, and only when the selected files pair up evenly
   if (fileView) {
@@ -940,11 +960,40 @@ function openExportModal() {
   exportConfirmBtn.focus();
 }
 
-// Show each checkbox only under its own option, and only where it applies
+// Keep the sub-options and the "Save separately" checkbox in step with the chosen mode
 function updateExportSubOptions() {
   const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
-  pairMergeOption.classList.toggle('hidden', !(fileView && mode === 'merge'));
-  lastSeparateOption.classList.toggle('hidden', !(fileView && mode === 'extract-last'));
+  const isMerge = mode === 'merge';
+
+  const isExtract = !!mode && mode.startsWith('extract');
+
+  pairMergeOption.classList.toggle('hidden', !(fileView && isMerge));
+  extractSubOptions.classList.toggle('hidden', !isExtract);
+  extractHeader.classList.toggle('bg-gray-100', isExtract);
+
+  if (isMerge) {
+    // Any merge: Save separately makes no sense, so untick and disable it
+    separateCheckbox.checked = false;
+    separateAuto = false;
+  } else if (mode === 'extract-only') {
+    // Extract only implies saving separately
+    if (!separateCheckbox.checked) {
+      separateCheckbox.checked = true;
+      separateAuto = true;
+    }
+  } else if (separateAuto) {
+    // Moved away from Extract only: remove the tick we added ourselves
+    separateCheckbox.checked = false;
+    separateAuto = false;
+  }
+
+  // Locked: Merge (always unticked) and Extract only (always ticked)
+  const locked = isMerge || mode === 'extract-only';
+  separateCheckbox.disabled = locked;
+  separateOption.classList.toggle('opacity-40', locked);
+  separateOption.classList.toggle('cursor-not-allowed', locked);
+  separateOption.classList.toggle('cursor-pointer', !locked);
+  separateOption.classList.toggle('hover:bg-gray-100', !locked);
 }
 
 function closeExportModal() {
@@ -955,12 +1004,14 @@ function handleExportConfirm() {
   const mode = document.querySelector('input[name="exportMode"]:checked').value;
   closeExportModal();
 
-  if (mode === 'separate') {
+  if (mode === 'extract-only') {
     // One PDF per page in Pages view, one PDF per file in Files view
     if (fileView) handleSeparateFiles();
     else handleSeparatePages();
+  } else if (mode === 'extract-first') {
+    handleExtractEdgePages('first');
   } else if (mode === 'extract-last') {
-    handleExtractLastPages();
+    handleExtractEdgePages('last');
   } else if (fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
     // Merge with "Merge in pairs" ticked
     handleMergeInPairs();
@@ -1180,30 +1231,35 @@ async function handleSeparateFiles() {
   }
 }
 
-// Files view export: the last page of each selected file.
-// "Last page" = the last selected page of that file in the current order, with its
-// current rotation. Combined into one PDF by default (in Files view card order), or one
-// PDF per file (zipped) when "Save as separate files" is checked.
-async function handleExtractLastPages() {
+// Files view export: the first or last selected page of each selected file,
+// with its current rotation. Combined into one PDF by default, or one PDF per
+// file (zipped) when "Save separately" is ticked.
+async function handleExtractEdgePages(which) {
   const selected = pageManager.getSelectedPages();
   if (selected.length === 0) return;
 
-  const separate = lastSeparateCheckbox.checked;
+  const separate = separateCheckbox.checked;
+  const suffix = `_${which}-pages`;
 
-  // Last selected page per file, ordered the way the file cards are ordered
-  const lastByFile = new Map();
-  for (const page of selected) lastByFile.set(page.fileIndex, page);
-  const lastPages = selectedFileOrder().map(fileIndex => lastByFile.get(fileIndex));
+  const edgeByFile = new Map();
+  for (const page of selected) {
+    if (which === 'first') {
+      if (!edgeByFile.has(page.fileIndex)) edgeByFile.set(page.fileIndex, page);
+    } else {
+      edgeByFile.set(page.fileIndex, page);
+    }
+  }
+  const edgePages = selectedFileOrder().map(fileIndex => edgeByFile.get(fileIndex));
 
   busy = true;
   updateStats();
 
   try {
-    const loadedPdfs = await loadSourcePdfs(lastPages);
+    const loadedPdfs = await loadSourcePdfs(edgePages);
 
     if (!separate) {
       const outPdf = await PDFLib.PDFDocument.create();
-      for (const page of lastPages) {
+      for (const page of edgePages) {
         try {
           await copyPageInto(outPdf, loadedPdfs, page);
         } catch (pageError) {
@@ -1211,18 +1267,16 @@ async function handleExtractLastPages() {
         }
       }
       const bytes = await outPdf.save();
-      downloadFile(bytes, `${exportBaseName()}_last-pages.pdf`, 'application/pdf');
+      downloadFile(bytes, `${exportBaseName()}${suffix}.pdf`, 'application/pdf');
     } else {
       const results = [];
 
-      for (const [i, page] of lastPages.entries()) {
+      for (const [i, page] of edgePages.entries()) {
         try {
           const outPdf = await PDFLib.PDFDocument.create();
           await copyPageInto(outPdf, loadedPdfs, page);
           const bytes = await outPdf.save();
-
-          const name = `${exportBaseName()}-${padNum(i + 1, lastPages.length)}_last-pages.pdf`;
-          results.push({ name, bytes });
+          results.push({ name: `${exportBaseName()}-${padNum(i + 1, edgePages.length)}${suffix}.pdf`, bytes });
         } catch (fileError) {
           throw new Error(`Failed on "${page.fileName}": ${fileError.message}`);
         }
@@ -1240,8 +1294,8 @@ async function handleExtractLastPages() {
       }
     }
   } catch (error) {
-    console.error('Extract last pages failed:', error);
-    alert(`Error extracting last pages: ${error.message}\n\nCheck console for details.`);
+    console.error(`Extract ${which} pages failed:`, error);
+    alert(`Error extracting ${which} pages: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
     updateStats();

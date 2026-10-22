@@ -147,6 +147,7 @@
       </p>
 
       <div class="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
+        <!-- Merge -->
         <label class="relative block cursor-pointer">
           <input type="radio" name="exportMode" value="merge" class="peer sr-only" checked>
           <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
@@ -175,54 +176,82 @@
           </span>
         </label>
 
-        <label id="separateOption" class="relative block cursor-pointer">
-          <input type="radio" name="exportMode" value="separate" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
+        <!-- Extract group -->
+        <div id="extractHeader" role="button" tabindex="0"
+          class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors">
+          <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
+          <div>
+            <div class="text-base font-semibold text-gray-900">Extract</div>
+            <div class="text-sm text-gray-500">Export pages or files without merging them</div>
+          </div>
+        </div>
+
+        <!-- Extract sub items (only shown while Extract is selected) -->
+        <div id="extractSubOptions" class="hidden space-y-2">
+
+        <label id="extractOnlyOption" class="relative block cursor-pointer ml-10">
+          <input type="radio" name="exportMode" value="extract-only" class="peer sr-only">
+          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <i class="bi bi-file-earmark-pdf text-2xl"></i>
             <div>
-              <div class="text-base font-semibold text-gray-900">Save separately</div>
-              <div id="separateDesc" class="text-sm text-gray-500">Save each selected page as its own PDF</div>
+              <div class="text-base font-medium text-gray-900">Extract only</div>
+              <div id="extractOnlyDesc" class="text-sm text-gray-500">Export each selected page as its own PDF</div>
             </div>
           </div>
-          <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
         </label>
 
+        <label id="extractFirstOption" class="hidden relative block cursor-pointer ml-10">
+          <input type="radio" name="exportMode" value="extract-first" class="peer sr-only">
+          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
+                    hover:bg-gray-100 peer-checked:bg-gray-100
+                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+            <div>
+              <div class="text-base font-medium text-gray-900">Extract first pages</div>
+              <div class="text-sm text-gray-500">Export the first page of each selected file</div>
+            </div>
+          </div>
+          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+        </label>
 
-        <label id="lastPageOption" class="hidden relative block cursor-pointer">
+        <label id="extractLastOption" class="hidden relative block cursor-pointer ml-10">
           <input type="radio" name="exportMode" value="extract-last" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
+          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
             <div>
-              <div class="text-base font-semibold text-gray-900">Extract last pages</div>
-              <div id="lastPageDesc" class="text-sm text-gray-500">Export the last page of each selected file</div>
+              <div class="text-base font-medium text-gray-900">Extract last pages</div>
+              <div class="text-sm text-gray-500">Export the last page of each selected file</div>
             </div>
           </div>
-          <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
         </label>
-        <label id="lastSeparateOption" class="hidden flex items-center gap-3 w-fit ml-16 mb-1 py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-          <input type="checkbox" id="lastSeparateCheckbox" class="peer sr-only">
-          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
-                       peer-checked:bg-gray-900 peer-checked:border-gray-900
-                       peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
-                       peer-checked:[&>.i-check]:opacity-100">
-            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
-          </span>
-          <span class="text-sm text-gray-700">
-            <span class="font-medium">Save as separate files</span>
-            <span id="lastSeparateDesc" class="block text-gray-500">One PDF per file instead of a single combined PDF</span>
-          </span>
-        </label>
+        </div>
       </div>
 
-      <div class="flex justify-end gap-3 mt-8 shrink-0">
+      <!-- Footer: checkbox on the left, buttons on the right (outside the scroll area) -->
+      <div class="flex items-center justify-between gap-4 mt-6 shrink-0">
+      <label id="separateOption" class="flex items-center gap-3 w-fit py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
+        <input type="checkbox" id="separateCheckbox" class="peer sr-only">
+        <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
+                     peer-checked:bg-gray-900 peer-checked:border-gray-900
+                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
+                     peer-checked:[&>.i-check]:opacity-100">
+          <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+        </span>
+        <span class="text-sm text-gray-700">
+          <span class="font-medium">Save separately</span>
+          <span class="block text-gray-500">One PDF per page or file</span>
+        </span>
+      </label>
+
+      <div class="flex justify-end gap-3">
         <button id="exportCancelBtn" type="button"
           class="h-12 px-7 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">Cancel</button>
         <button id="exportConfirmBtn" type="button"
           class="h-12 px-7 text-base font-semibold text-white bg-gray-900 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-full transition-colors">Export</button>
+      </div>
       </div>
     </div>
   </div>
