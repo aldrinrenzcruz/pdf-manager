@@ -88,6 +88,17 @@
 
       <!-- Right: future actions go here -->
       <div id="toolbarActions" class="flex items-center gap-2">
+        <div id="viewToggle" role="group" aria-label="View mode"
+          class="flex items-center p-0.5 bg-gray-100 rounded-full text-sm font-medium">
+          <button type="button" data-view="pages" aria-pressed="true" title="Show every page"
+            class="view-opt h-7 px-3 rounded-full flex items-center gap-1.5 transition-colors">
+            <i class="bi bi-file-earmark-text"></i>Pages
+          </button>
+          <button type="button" data-view="files" aria-pressed="false" title="Show one card per PDF file"
+            class="view-opt h-7 px-3 rounded-full flex items-center gap-1.5 transition-colors">
+            <i class="bi bi-files"></i>Files
+          </button>
+        </div>
       </div>
     </div>
 

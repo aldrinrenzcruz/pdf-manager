@@ -78,6 +78,9 @@ const outputFilename = document.getElementById('outputFilename');
 const totalPagesSpan = document.getElementById('totalPages');
 const selectedPagesSpan = document.getElementById('selectedPages');
 
+const viewToggle = document.getElementById('viewToggle');
+let fileView = false;
+
 const exportModal = document.getElementById('exportModal');
 const exportCount = document.getElementById('exportCount');
 const exportCloseBtn = document.getElementById('exportCloseBtn');
@@ -115,6 +118,16 @@ uploadZone.addEventListener('click', openFilePicker);
 fileInput.addEventListener('change', handleFileSelect);
 deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
 selectAllCheckbox.addEventListener('change', handleSelectAll);
+
+viewToggle.addEventListener('click', (e) => {
+  const btn = e.target.closest('.view-opt');
+  if (!btn) return;
+  fileView = btn.dataset.view === 'files';
+  viewToggle.querySelectorAll('.view-opt').forEach(b => {
+    b.setAttribute('aria-pressed', String(b === btn));
+  });
+  applyView();
+});
 
 exportBtn.addEventListener('click', openExportModal);
 exportCloseBtn.addEventListener('click', closeExportModal);
@@ -525,11 +538,13 @@ async function addPageToGrid(pageObj) {
   checkboxContainer.innerHTML = `
     <label class="relative block w-6 h-6 cursor-pointer">
       <input type="checkbox" class="page-checkbox peer sr-only" ${pageObj.selected ? 'checked' : ''}>
-      <span class="w-6 h-6 rounded-full border-2 border-gray-300 bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-white text-sm transition-colors
+      <span class="relative w-6 h-6 rounded-full border-2 border-gray-300 bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-white text-sm transition-colors
                    peer-checked:bg-gray-900 peer-checked:border-gray-900
+                   peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
-                   peer-checked:[&>i]:opacity-100">
-        <i class="bi bi-check-lg opacity-0 transition-opacity"></i>
+                   peer-checked:[&>.i-check]:opacity-100 peer-indeterminate:[&>.i-dash]:opacity-100">
+        <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+        <i class="i-dash bi bi-dash-lg absolute opacity-0 transition-opacity"></i>
       </span>
     </label>
   `;
@@ -581,8 +596,17 @@ async function addPageToGrid(pageObj) {
 
   checkbox.addEventListener('change', (e) => {
     e.stopPropagation();
-    pageManager.toggleSelection(pageObj.id);
-    pageDiv.classList.toggle('selected', pageManager.getPage(pageObj.id).selected);
+    if (fileView) {
+      // File card: select/unselect every page of that file
+      const page = pageManager.getPage(pageObj.id);
+      pageManager.getAllPages()
+        .filter(p => p.fileIndex === page.fileIndex)
+        .forEach(p => { p.selected = e.target.checked; });
+      syncSelectionUI();
+    } else {
+      pageManager.toggleSelection(pageObj.id);
+      pageDiv.classList.toggle('selected', pageManager.getPage(pageObj.id).selected);
+    }
     updateStats();
   });
 
@@ -597,8 +621,23 @@ async function addPageToGrid(pageObj) {
 
   deleteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    pageManager.removePage(pageObj.id);
-    pageDiv.remove();
+
+    if (fileView) {
+      // File card: delete every page of that file
+      const page = pageManager.getPage(pageObj.id);
+      const filePages = pageManager.getAllPages().filter(p => p.fileIndex === page.fileIndex);
+      const pageLabel = filePages.length === 1 ? '1 page' : `all ${filePages.length} pages`;
+      if (!confirm(`Delete ${pageLabel} of "${page.fileName}"?`)) return;
+
+      for (const p of filePages) {
+        pageManager.removePage(p.id);
+        document.querySelector(`[data-page-id="${p.id}"]`)?.remove();
+      }
+    } else {
+      pageManager.removePage(pageObj.id);
+      pageDiv.remove();
+    }
+
     updatePageNumbers();
     updateStats();
   });
@@ -636,7 +675,8 @@ function handleDragStart(e) {
   e.dataTransfer.setData('text/plain', String(draggedPageId)); // Firefox needs this
 
   dragGap = parseFloat(getComputedStyle(pagesGrid).columnGap) || 16;
-  dragCache = Array.from(pagesGrid.querySelectorAll('.pdf-page')).map(el => ({
+  // Hidden cards (non-representative pages in file view) are skipped
+  dragCache = Array.from(pagesGrid.querySelectorAll('.pdf-page:not(.hidden)')).map(el => ({
     id: Number(el.dataset.pageId),
     x: el.offsetLeft,
     y: el.offsetTop,
@@ -670,8 +710,9 @@ function handleDrop(e) {
   if (draggedPageId === null) return;
   e.preventDefault();
 
+  const draggedId = draggedPageId;
   const plan = dragPlan;
-  const card = pagesGrid.querySelector(`[data-page-id="${draggedPageId}"]`);
+  const card = pagesGrid.querySelector(`[data-page-id="${draggedId}"]`);
   finishDrag();
   if (!plan || !card) return;
 
@@ -679,9 +720,14 @@ function handleDrop(e) {
   if (!target) return;
 
   animateReorder(() => {
-    pageManager.reorderPages(plan.fromIndex, plan.toIndex);
-    if (plan.after) target.after(card);
-    else target.before(card);
+    if (fileView) {
+      // In file view, all pages of the dragged file move together
+      moveFileGroup(draggedId, plan.targetId, plan.after);
+    } else {
+      pageManager.reorderPages(plan.fromIndex, plan.toIndex);
+      if (plan.after) target.after(card);
+      else target.before(card);
+    }
   });
 
   updatePageNumbers();
@@ -728,7 +774,7 @@ function updateDropTarget() {
   }
 
   const after = x > best.x + best.w / 2;
-  const pages = pageManager.getAllPages();
+  const pages = fileView ? representativePages() : pageManager.getAllPages();
   const fromIndex = pages.findIndex(p => p.id === draggedPageId);
   let toIndex = pages.findIndex(p => p.id === best.id) + (after ? 1 : 0);
   if (fromIndex < toIndex) toIndex--;
@@ -803,13 +849,138 @@ function animateReorder(mutate) {
   }
 }
 
-function updatePageNumbers() {
-  const gridContainer = pagesGrid.querySelector('[class*="grid-cols"]') || pagesGrid;
-  const pageElements = gridContainer.querySelectorAll('.pdf-page');
-  pageElements.forEach((el, index) => {
-    const pageNumBadge = el.querySelector('.page-number-badge');
-    pageNumBadge.textContent = index + 1;
+// ---------- Pages / Files view ----------
+
+// First remaining page of each file, in current order
+function representativePages() {
+  const seen = new Set();
+  return pageManager.getAllPages().filter(p => {
+    if (seen.has(p.fileIndex)) return false;
+    seen.add(p.fileIndex);
+    return true;
   });
+}
+
+// Refresh card visibility and labels for the current view mode.
+// Page view: every page, labelled with its number.
+// File view: one card per file (its current first page), labelled with the file name.
+function applyView() {
+  const pages = pageManager.getAllPages();
+  const reps = new Set(representativePages().map(p => p.id));
+
+  pagesGrid.querySelectorAll('.pdf-page').forEach(el => {
+    const id = Number(el.dataset.pageId);
+    const page = pageManager.getPage(id);
+    if (!page) return;
+
+    el.classList.toggle('hidden', fileView && !reps.has(id));
+
+    const badge = el.querySelector('.page-number-badge');
+    if (fileView) {
+      if (!el._nameEl) el._nameEl = createFileNameEl(el, page.fileName);
+      if (badge.firstChild !== el._nameEl) badge.replaceChildren(el._nameEl);
+    } else {
+      badge.textContent = pages.findIndex(p => p.id === id) + 1;
+    }
+  });
+
+  syncSelectionUI();
+}
+
+// Keep every card's checkbox and highlight in step with the page data.
+// Page view: each card mirrors its own page.
+// File view: each card mirrors its whole file (checked = all pages selected,
+// dash = some pages selected).
+function syncSelectionUI() {
+  const pages = pageManager.getAllPages();
+
+  pagesGrid.querySelectorAll('.pdf-page').forEach(el => {
+    const page = pageManager.getPage(Number(el.dataset.pageId));
+    if (!page) return;
+
+    const cb = el.querySelector('.page-checkbox');
+    if (fileView) {
+      const filePages = pages.filter(p => p.fileIndex === page.fileIndex);
+      const count = filePages.filter(p => p.selected).length;
+      const all = count === filePages.length;
+      cb.checked = all;
+      cb.indeterminate = count > 0 && !all;
+      el.classList.toggle('selected', count > 0);
+    } else {
+      cb.checked = page.selected;
+      cb.indeterminate = false;
+      el.classList.toggle('selected', page.selected);
+    }
+  });
+}
+
+// One-line, truncated file name; drag it to the right to reveal the rest
+function createFileNameEl(card, name) {
+  const el = document.createElement('div');
+  el.className = 'file-name';
+  el.textContent = name;
+  el.title = name;
+
+  let startX = 0;
+  let startScroll = 0;
+  let active = false;
+
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    active = true;
+    startX = e.clientX;
+    startScroll = el.scrollLeft;
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('dragging');
+    card.draggable = false; // don't start a card drag
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!active) return;
+    el.scrollLeft = startScroll + (e.clientX - startX);
+  });
+
+  const end = () => {
+    if (!active) return;
+    active = false;
+    el.classList.remove('dragging');
+    card.draggable = true;
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+
+  return el;
+}
+
+// File view: move all pages of the dragged file together
+function moveFileGroup(draggedId, targetId, after) {
+  const pages = pageManager.pages;
+  const dragFile = pageManager.getPage(draggedId).fileIndex;
+  const targetFile = pageManager.getPage(targetId).fileIndex;
+
+  const moving = pages.filter(p => p.fileIndex === dragFile);
+  const rest = pages.filter(p => p.fileIndex !== dragFile);
+
+  let at;
+  if (after) {
+    let last = -1;
+    rest.forEach((p, i) => { if (p.fileIndex === targetFile) last = i; });
+    at = last + 1;
+  } else {
+    at = rest.findIndex(p => p.fileIndex === targetFile);
+  }
+  rest.splice(at, 0, ...moving);
+  pageManager.pages = rest;
+
+  rest.forEach(p => {
+    const el = pagesGrid.querySelector(`[data-page-id="${p.id}"]`);
+    if (el) pagesGrid.insertBefore(el, dropIndicator);
+  });
+}
+
+function updatePageNumbers() {
+  applyView();
 }
 
 function handleSelectAll(e) {
@@ -820,6 +991,7 @@ function handleSelectAll(e) {
   document.querySelectorAll('.pdf-page').forEach(page => {
     page.classList.toggle('selected', e.target.checked);
   });
+  syncSelectionUI();
   updateStats();
 }
 
@@ -998,8 +1170,9 @@ async function openPreviewModal(pageId) {
 
   currentPreviewPageId = pageId;
 
-  const pageIndex = pageManager.getAllPages().findIndex(p => p.id === pageId);
-  modalPageTitle.textContent = `Page ${pageIndex + 1} of ${pageManager.getAllPages().length}`;
+  const scope = previewScopePages(pageId);
+  const pageIndex = scope.findIndex(p => p.id === pageId);
+  modalPageTitle.textContent = `Page ${pageIndex + 1} of ${scope.length}`;
   modalFileName.textContent = page.fileName;
 
   previewModal.classList.remove('hidden');
@@ -1097,10 +1270,19 @@ async function renderPreviewTextLayer(page, container, scale, token) {
   }
 }
 
+// Pages the preview can step through: all pages, or in file view only
+// the pages of the file being previewed
+function previewScopePages(pageId = currentPreviewPageId) {
+  const all = pageManager.getAllPages();
+  if (!fileView) return all;
+  const page = pageManager.getPage(pageId);
+  return page ? all.filter(p => p.fileIndex === page.fileIndex) : all;
+}
+
 function navigateToPrevPage() {
   if (!currentPreviewPageId) return;
 
-  const allPages = pageManager.getAllPages();
+  const allPages = previewScopePages();
   const currentIndex = allPages.findIndex(p => p.id === currentPreviewPageId);
 
   if (currentIndex > 0) {
@@ -1111,7 +1293,7 @@ function navigateToPrevPage() {
 function navigateToNextPage() {
   if (!currentPreviewPageId) return;
 
-  const allPages = pageManager.getAllPages();
+  const allPages = previewScopePages();
   const currentIndex = allPages.findIndex(p => p.id === currentPreviewPageId);
 
   if (currentIndex < allPages.length - 1) {
@@ -1120,7 +1302,7 @@ function navigateToNextPage() {
 }
 
 function updateNavigationButtons() {
-  const allPages = pageManager.getAllPages();
+  const allPages = previewScopePages();
   const currentIndex = allPages.findIndex(p => p.id === currentPreviewPageId);
 
   prevPage.style.opacity = currentIndex > 0 ? '1' : '0.3';
@@ -1148,7 +1330,7 @@ function openPreviewInNewTab() {
 function deletePreviewPage() {
   if (!currentPreviewPageId) return;
 
-  const allPages = pageManager.getAllPages();
+  const allPages = previewScopePages();
   const index = allPages.findIndex(p => p.id === currentPreviewPageId);
   if (index === -1) return;
 
