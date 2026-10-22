@@ -989,7 +989,7 @@ async function handleMerge() {
     }
 
     const pdfBytes = await mergedPdf.save();
-    const filename = outputFilename.value.trim() || 'merged-document';
+    const filename = exportBaseName();
     downloadFile(pdfBytes, `${filename}.pdf`, 'application/pdf');
   } catch (error) {
     console.error('Merge failed:', error);
@@ -1009,7 +1009,7 @@ async function handleSeparatePages() {
 
   try {
     const loadedPdfs = await loadSourcePdfs(pagesToSeparate);
-    const filename = outputFilename.value.trim() || 'separated-pages';
+    const filename = exportBaseName();
     const allPages = pageManager.getAllPages();
 
     if (pagesToSeparate.length === 1) {
@@ -1019,7 +1019,7 @@ async function handleSeparatePages() {
 
       const pdfBytes = await singlePdf.save();
       const pageIndex = allPages.findIndex(p => p.id === page.id);
-      downloadFile(pdfBytes, `${filename}_page-${pageIndex + 1}.pdf`, 'application/pdf');
+      downloadFile(pdfBytes, `${filename}-${padNum(pageIndex + 1, allPages.length)}.pdf`, 'application/pdf');
     } else {
       // Everything goes inside one top-level folder in the ZIP
       const folderName = exportFolderName();
@@ -1035,7 +1035,7 @@ async function handleSeparatePages() {
 
           const pdfBytes = await singlePdf.save();
           const pageIndex = allPages.findIndex(p => p.id === page.id);
-          folder.file(`${filename}_page-${pageIndex + 1}.pdf`, pdfBytes);
+          folder.file(`${filename}-${padNum(pageIndex + 1, allPages.length)}.pdf`, pdfBytes);
         } catch (pageError) {
           throw new Error(`Failed on page ${i + 1}: ${pageError.message}`);
         }
@@ -1096,8 +1096,7 @@ async function handleMergeInPairs() {
         const bytes = await outPdf.save();
 
         // Named after the filename box plus the pair number (01, 02, ...)
-        const num = String(i + 1).padStart(Math.max(2, String(half).length), '0');
-        const name = `${outputFilename.value.trim() || 'merged'}-${num}.pdf`;
+        const name = `${exportBaseName()}-${padNum(i + 1, half)}.pdf`;
         results.push({ name, bytes });
       } catch (pairError) {
         throw new Error(`Failed on "${firstName}" + "${secondName}": ${pairError.message}`);
@@ -1143,7 +1142,7 @@ async function handleSeparateFiles() {
   try {
     const loadedPdfs = await loadSourcePdfs(selected);
     const results = [];
-    const usedNames = new Set();
+    let seq = 0;
 
     for (const [fileIndex, pages] of groups) {
       const fileName = pageManager.originalFiles[fileIndex].name;
@@ -1154,10 +1153,7 @@ async function handleSeparateFiles() {
         }
         const bytes = await outPdf.save();
 
-        const base = fileName.replace(/\.pdf$/i, '');
-        let name = `${base}.pdf`;
-        for (let n = 2; usedNames.has(name); n++) name = `${base} (${n}).pdf`;
-        usedNames.add(name);
+        const name = `${exportBaseName()}-${padNum(++seq, groups.size)}.pdf`;
         results.push({ name, bytes });
       } catch (fileError) {
         throw new Error(`Failed on "${fileName}": ${fileError.message}`);
@@ -1215,22 +1211,17 @@ async function handleExtractLastPages() {
         }
       }
       const bytes = await outPdf.save();
-      const base = outputFilename.value.trim() || 'last-pages';
-      downloadFile(bytes, `${base}_last-pages.pdf`, 'application/pdf');
+      downloadFile(bytes, `${exportBaseName()}_last-pages.pdf`, 'application/pdf');
     } else {
       const results = [];
-      const usedNames = new Set();
 
-      for (const page of lastPages) {
+      for (const [i, page] of lastPages.entries()) {
         try {
           const outPdf = await PDFLib.PDFDocument.create();
           await copyPageInto(outPdf, loadedPdfs, page);
           const bytes = await outPdf.save();
 
-          const base = page.fileName.replace(/\.pdf$/i, '');
-          let name = `${base}_last-page.pdf`;
-          for (let n = 2; usedNames.has(name); n++) name = `${base}_last-page (${n}).pdf`;
-          usedNames.add(name);
+          const name = `${exportBaseName()}-${padNum(i + 1, lastPages.length)}_last-pages.pdf`;
           results.push({ name, bytes });
         } catch (fileError) {
           throw new Error(`Failed on "${page.fileName}": ${fileError.message}`);
@@ -1255,6 +1246,16 @@ async function handleExtractLastPages() {
     busy = false;
     updateStats();
   }
+}
+
+// Base name for exported files: the filename box, or "Untitled" when it's empty
+function exportBaseName() {
+  return outputFilename.value.trim() || 'Untitled';
+}
+
+// Zero-padded sequence number, at least 2 digits (01, 02, ...), wide enough for `total`
+function padNum(n, total) {
+  return String(n).padStart(Math.max(2, String(total).length), '0');
 }
 
 // Name for every exported ZIP and the folder inside it: pdf-manager-YYYYMMDD-HHMMSS.
