@@ -1053,9 +1053,13 @@ function openExportModal() {
 
   exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
 
-  // Separate is a page-level export, so it's not offered in Files view
+  // Separate is page-level (Pages view only); Trim last page is file-level (Files view only)
   document.getElementById('separateOption').classList.toggle('hidden', fileView);
-  if (fileView) {
+  document.getElementById('trimLastOption').classList.toggle('hidden', !fileView);
+
+  // If the remembered choice isn't offered in this view, fall back to Merge
+  const checkedMode = document.querySelector('input[name="exportMode"]:checked');
+  if (checkedMode && checkedMode.closest('label').classList.contains('hidden')) {
     document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
   }
 
@@ -1073,6 +1077,8 @@ function handleExportConfirm() {
 
   if (mode === 'separate') {
     handleSeparate();
+  } else if (mode === 'trim-last') {
+    handleTrimLast();
   } else {
     handleMerge();
   }
@@ -1130,7 +1136,9 @@ async function handleSeparate() {
       const pageIndex = allPages.findIndex(p => p.id === page.id);
       downloadFile(pdfBytes, `${filename}_page-${pageIndex + 1}.pdf`, 'application/pdf');
     } else {
+      const folderName = `${sanitizeFilename(filename) || 'separated-pages'}_separated`;
       const zip = new JSZip();
+      const folder = zip.folder(folderName);
 
       for (let i = 0; i < pagesToSeparate.length; i++) {
         const page = pagesToSeparate[i];
@@ -1141,18 +1149,94 @@ async function handleSeparate() {
 
           const pdfBytes = await singlePdf.save();
           const pageIndex = allPages.findIndex(p => p.id === page.id);
-          zip.file(`${filename}_page-${pageIndex + 1}.pdf`, pdfBytes);
+          folder.file(`${filename}_page-${pageIndex + 1}.pdf`, pdfBytes);
         } catch (pageError) {
           throw new Error(`Failed on page ${i + 1}: ${pageError.message}`);
         }
       }
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, `${filename}_separated.zip`, 'application/zip');
+      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
     }
   } catch (error) {
     console.error('Separate failed:', error);
     alert(`Error separating pages: ${error.message}\n\nCheck console for details.`);
+  } finally {
+    busy = false;
+    updateStats();
+  }
+}
+
+// Files view export: one PDF per selected file, each without its last page.
+// "Last page" = the last selected page of that file in the current order.
+async function handleTrimLast() {
+  const selected = pageManager.getSelectedPages();
+  if (selected.length === 0) return;
+
+  // Group selected pages by file, keeping current order
+  const groups = new Map();
+  for (const page of selected) {
+    if (!groups.has(page.fileIndex)) groups.set(page.fileIndex, []);
+    groups.get(page.fileIndex).push(page);
+  }
+
+  const jobs = [...groups.entries()]
+    .map(([fileIndex, pages]) => ({ fileIndex, pages: pages.slice(0, -1) }))
+    .filter(job => job.pages.length > 0);
+  const skipped = groups.size - jobs.length;
+
+  if (jobs.length === 0) {
+    alert('Nothing to export: each selected file has only one page, so trimming its last page would leave it empty.');
+    return;
+  }
+
+  busy = true;
+  updateStats();
+
+  try {
+    const loadedPdfs = await loadSourcePdfs(jobs.flatMap(job => job.pages));
+    const results = [];
+    const usedNames = new Set();
+
+    for (const job of jobs) {
+      const fileName = pageManager.originalFiles[job.fileIndex].name;
+      try {
+        const outPdf = await PDFLib.PDFDocument.create();
+        for (const page of job.pages) {
+          await copyPageInto(outPdf, loadedPdfs, page);
+        }
+        const bytes = await outPdf.save();
+
+        const base = fileName.replace(/\.pdf$/i, '');
+        let name = `${base}_trimmed.pdf`;
+        for (let n = 2; usedNames.has(name); n++) name = `${base}_trimmed (${n}).pdf`;
+        usedNames.add(name);
+        results.push({ name, bytes });
+      } catch (fileError) {
+        throw new Error(`Failed on "${fileName}": ${fileError.message}`);
+      }
+    }
+
+    if (results.length === 1) {
+      downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+    } else {
+      // Everything goes inside one top-level folder in the ZIP
+      const base = outputFilename.value.trim() || 'trimmed-files';
+      const folderName = `${sanitizeFilename(base) || 'trimmed-files'}_trimmed`;
+      const zip = new JSZip();
+      const folder = zip.folder(folderName);
+      results.forEach(r => folder.file(r.name, r.bytes));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+    }
+
+    if (skipped > 0) {
+      const label = skipped === 1 ? '1 file was' : `${skipped} files were`;
+      alert(`${label} skipped: only one page was selected, so nothing would be left after trimming.`);
+    }
+  } catch (error) {
+    console.error('Trim last page failed:', error);
+    alert(`Error trimming files: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
     updateStats();
