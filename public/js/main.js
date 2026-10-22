@@ -447,14 +447,20 @@ async function processFilesNow(files) {
   pagesGrid.classList.remove('hidden');
   selectAllContainer.classList.remove('hidden');
 
-  for (const file of files) {
-    const fileIndex = pageManager.originalFiles.length;
-    pageManager.originalFiles.push(file);
-    await loadPDF(file, fileIndex);
-  }
-
+  busy = true;
   updateStats();
-  updatePageNumbers();
+
+  try {
+    for (const file of files) {
+      const fileIndex = pageManager.originalFiles.length;
+      pageManager.originalFiles.push(file);
+      await loadPDF(file, fileIndex);
+    }
+  } finally {
+    busy = false;
+    updateStats();
+    updatePageNumbers();
+  }
 
   autoNameFromFirstPage();
 }
@@ -475,6 +481,7 @@ async function loadPDF(file, fileIndex) {
         fileIndex
       });
       await addPageToGrid(pageObj);
+      updateStats();
     }
   } catch (error) {
     console.error(`Error loading PDF "${file.name}":`, error);
@@ -504,7 +511,7 @@ async function renderPage(pdfPage, rotation) {
 
 async function addPageToGrid(pageObj) {
   const pageDiv = document.createElement('div');
-  pageDiv.className = 'pdf-page group relative rounded-2xl bg-gray-100 hover:bg-gray-200/70 p-1.5 cursor-grab active:cursor-grabbing';
+  pageDiv.className = 'pdf-page group relative rounded-none bg-gray-100 hover:bg-gray-200/70 p-1.5 cursor-grab active:cursor-grabbing';
   pageDiv.dataset.pageId = pageObj.id;
   pageDiv.draggable = true;
   pageDiv.classList.toggle('selected', pageObj.selected);

@@ -235,7 +235,7 @@
 }
 
 .pdf-page canvas {
-  border-radius: 6px;
+  border-radius: 0;
   background: #fff;
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.12),
