@@ -244,7 +244,7 @@
 }
 
 .pdf-page:not(.selected) canvas {
-  opacity: 0.55;
+  opacity: 0.65;
 }
 
 .pdf-page {
