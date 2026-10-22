@@ -11,14 +11,33 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <link href="./public/css/app.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Instrument Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            display: ['"Bricolage Grotesque"', '"Instrument Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+
 </head>
 
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen antialiased">
   <div class="flex flex-col h-screen overflow-hidden">
     <!-- Header -->
     <header class="bg-white border-b border-gray-200 px-4 py-1">
       <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <h1 class="text-sm font-semibold text-gray-900 whitespace-nowrap">PDF Manager</h1>
+        <h1 class="font-display text-sm font-semibold text-gray-900 whitespace-nowrap">PDF Manager</h1>
 
         <input type="text" id="outputFilename" placeholder="Filename" aria-label="Filename" spellcheck="false"
           class="w-64 h-8 px-3 text-sm font-medium text-center text-gray-900 placeholder-gray-400 bg-transparent border-0 rounded-lg hover:bg-gray-100 focus:bg-gray-100 focus:outline-none focus:ring-0">
@@ -46,8 +65,34 @@
       </div>
     </header>
 
+    <!-- Toolbar (shown once pages are loaded) -->
+    <div id="selectAllContainer"
+      class="hidden flex items-center justify-between gap-3 bg-white border-b border-gray-200 px-4 py-1">
+      <!-- Left: selection -->
+      <div class="flex items-center gap-2">
+        <label title="Select all pages"
+          class="flex items-center gap-2.5 h-8 pl-2 pr-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
+          <input type="checkbox" id="selectAllCheckbox" class="peer sr-only">
+          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
+                       peer-checked:bg-gray-900 peer-checked:border-gray-900
+                       peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
+                       peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
+                       peer-checked:[&>.i-check]:opacity-100 peer-indeterminate:[&>.i-dash]:opacity-100">
+            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+            <i class="i-dash bi bi-dash-lg absolute opacity-0 transition-opacity"></i>
+          </span>
+          <span class="text-sm font-medium text-gray-700 whitespace-nowrap">Select all</span>
+          <span class="text-sm text-gray-400 tabular-nums whitespace-nowrap"><span id="selectedPages">0</span> of <span id="totalPages">0</span> selected</span>
+        </label>
+      </div>
+
+      <!-- Right: future actions go here -->
+      <div id="toolbarActions" class="flex items-center gap-2">
+      </div>
+    </div>
+
     <!-- Upload Zone / Pages Grid -->
-    <div id="mainContent" class="flex-1 overflow-y-auto px-6 pb-6 flex flex-col">
+    <div id="mainContent" class="flex-1 overflow-y-auto p-6 flex flex-col">
       <!-- Initial Upload Zone -->
       <div id="uploadZone"
         class="drop-zone m-auto w-[min(42rem,90vw)] h-96 flex flex-col items-center justify-center rounded-2xl cursor-pointer
@@ -56,27 +101,8 @@
                [&.drag-over]:border-blue-400 [&.drag-over]:bg-blue-100
                transition-colors duration-150">
         <i class="bi bi-file-earmark-pdf text-6xl text-blue-300 mb-4"></i>
-        <h2 class="text-xl font-semibold text-gray-700 mb-2">Upload your PDFs</h2>
+        <h2 class="font-display text-xl font-semibold text-gray-700 mb-2">Upload your PDFs</h2>
         <p class="text-gray-500">Drag and drop files here, or click to browse</p>
-      </div>
-
-      <!-- Select all bar (sticky, hidden until pages load) -->
-      <div id="selectAllContainer"
-        class="hidden flex items-center sticky top-0 z-20 -mx-6 px-6 py-1 mb-2 bg-gray-50/85 backdrop-blur-md">
-        <label title="Select all pages"
-          class="flex items-center gap-2.5 h-8 pl-2 pr-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-          <input type="checkbox" id="selectAllCheckbox" class="peer sr-only">
-          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
-                 peer-checked:bg-gray-900 peer-checked:border-gray-900
-                 peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
-                 peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
-                 peer-checked:[&>.i-check]:opacity-100 peer-indeterminate:[&>.i-dash]:opacity-100">
-            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
-            <i class="i-dash bi bi-dash-lg absolute opacity-0 transition-opacity"></i>
-          </span>
-          <span class="text-sm font-medium text-gray-700 whitespace-nowrap">Select all</span>
-          <span class="text-sm text-gray-400 tabular-nums whitespace-nowrap"><span id="selectedPages">0</span> of <span id="totalPages">0</span> selected</span>
-        </label>
       </div>
 
       <!-- Pages Grid (hidden initially) -->
@@ -91,7 +117,7 @@
     role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl p-8">
       <div class="flex items-center justify-between mb-2">
-        <h3 id="exportModalTitle" class="text-xl font-semibold text-gray-900">Export</h3>
+        <h3 id="exportModalTitle" class="font-display text-xl font-semibold text-gray-900">Export</h3>
         <button id="exportCloseBtn" type="button" aria-label="Close" title="Close (Esc)"
           class="text-gray-500 hover:text-gray-900 hover:bg-gray-100 w-12 h-12 -mr-3 rounded-full flex items-center justify-center text-xl transition-colors">
           <i class="bi bi-x-lg"></i>
@@ -144,7 +170,7 @@
   <div id="previewModal" class="hidden">
     <div class="preview-toolbar">
       <div class="min-w-0">
-        <h3 id="modalPageTitle" class="text-base font-semibold truncate">Page 1</h3>
+        <h3 id="modalPageTitle" class="font-display text-base font-semibold truncate">Page 1</h3>
         <p id="modalFileName" class="text-xs text-gray-400 truncate">filename.pdf</p>
       </div>
       <div class="flex items-center gap-1">
