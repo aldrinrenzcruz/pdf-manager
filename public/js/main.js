@@ -1056,6 +1056,7 @@ function openExportModal() {
   // Separate is page-level (Pages view only); Trim last page is file-level (Files view only)
   document.getElementById('separateOption').classList.toggle('hidden', fileView);
   document.getElementById('trimLastOption').classList.toggle('hidden', !fileView);
+  document.getElementById('keepFilesOption').classList.toggle('hidden', !fileView);
 
   // If the remembered choice isn't offered in this view, fall back to Merge
   const checkedMode = document.querySelector('input[name="exportMode"]:checked');
@@ -1077,6 +1078,8 @@ function handleExportConfirm() {
 
   if (mode === 'separate') {
     handleSeparate();
+  } else if (mode === 'keep-files') {
+    handleKeepFilesSeparate();
   } else if (mode === 'trim-last') {
     handleTrimLast();
   } else {
@@ -1136,6 +1139,7 @@ async function handleSeparate() {
       const pageIndex = allPages.findIndex(p => p.id === page.id);
       downloadFile(pdfBytes, `${filename}_page-${pageIndex + 1}.pdf`, 'application/pdf');
     } else {
+      // Everything goes inside one top-level folder in the ZIP
       const folderName = `${sanitizeFilename(filename) || 'separated-pages'}_separated`;
       const zip = new JSZip();
       const folder = zip.folder(folderName);
@@ -1161,6 +1165,67 @@ async function handleSeparate() {
   } catch (error) {
     console.error('Separate failed:', error);
     alert(`Error separating pages: ${error.message}\n\nCheck console for details.`);
+  } finally {
+    busy = false;
+    updateStats();
+  }
+}
+
+// Files view export: one PDF per file, keeping all of its selected pages
+// in their current order and rotation.
+async function handleKeepFilesSeparate() {
+  const selected = pageManager.getSelectedPages();
+  if (selected.length === 0) return;
+
+  // Group selected pages by file, keeping current order
+  const groups = new Map();
+  for (const page of selected) {
+    if (!groups.has(page.fileIndex)) groups.set(page.fileIndex, []);
+    groups.get(page.fileIndex).push(page);
+  }
+
+  busy = true;
+  updateStats();
+
+  try {
+    const loadedPdfs = await loadSourcePdfs(selected);
+    const results = [];
+    const usedNames = new Set();
+
+    for (const [fileIndex, pages] of groups) {
+      const fileName = pageManager.originalFiles[fileIndex].name;
+      try {
+        const outPdf = await PDFLib.PDFDocument.create();
+        for (const page of pages) {
+          await copyPageInto(outPdf, loadedPdfs, page);
+        }
+        const bytes = await outPdf.save();
+
+        const base = fileName.replace(/\.pdf$/i, '');
+        let name = `${base}.pdf`;
+        for (let n = 2; usedNames.has(name); n++) name = `${base} (${n}).pdf`;
+        usedNames.add(name);
+        results.push({ name, bytes });
+      } catch (fileError) {
+        throw new Error(`Failed on "${fileName}": ${fileError.message}`);
+      }
+    }
+
+    if (results.length === 1) {
+      downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+    } else {
+      // Everything goes inside one top-level folder in the ZIP
+      const base = outputFilename.value.trim() || 'files';
+      const folderName = `${sanitizeFilename(base) || 'files'}_files`;
+      const zip = new JSZip();
+      const folder = zip.folder(folderName);
+      results.forEach(r => folder.file(r.name, r.bytes));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+    }
+  } catch (error) {
+    console.error('Keep files separate failed:', error);
+    alert(`Error saving files: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
     updateStats();
