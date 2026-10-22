@@ -59,65 +59,65 @@ class PDFPageManager {
   }
 }
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const pageManager = new PDFPageManager();
 let busy = false;
 let loadQueue = Promise.resolve();
 
-const mainContent = document.getElementById('main-content');
-const uploadZone = document.getElementById('upload-zone');
-const pagesGrid = document.getElementById('pages-grid');
-const fileInput = document.getElementById('file-input');
-const addPdfsBtn = document.getElementById('add-pdfs-btn');
-const deleteSelectedBtn = document.getElementById('delete-selected-btn');
-const deleteLastPagesBtn = document.getElementById('delete-last-pages-btn');
-const selectAllCheckbox = document.getElementById('select-all-checkbox');
-const selectAllContainer = document.getElementById('select-all-container');
-const exportBtn = document.getElementById('export-btn');
-const outputFilename = document.getElementById('output-filename');
-const totalPagesSpan = document.getElementById('total-pages');
-const selectedPagesSpan = document.getElementById('selected-pages');
+const mainContent = document.getElementById("main-content");
+const uploadZone = document.getElementById("upload-zone");
+const pagesGrid = document.getElementById("pages-grid");
+const fileInput = document.getElementById("file-input");
+const addPdfsBtn = document.getElementById("add-pdfs-btn");
+const deleteSelectedBtn = document.getElementById("delete-selected-btn");
+const deleteLastPagesBtn = document.getElementById("delete-last-pages-btn");
+const selectAllCheckbox = document.getElementById("select-all-checkbox");
+const selectAllContainer = document.getElementById("select-all-container");
+const exportBtn = document.getElementById("export-btn");
+const outputFilename = document.getElementById("output-filename");
+const totalPagesSpan = document.getElementById("total-pages");
+const selectedPagesSpan = document.getElementById("selected-pages");
 
-const viewToggle = document.getElementById('view-toggle');
+const viewToggle = document.getElementById("view-toggle");
 let fileView = false;
 
-const exportModal = document.getElementById('export-modal');
-const exportCount = document.getElementById('export-count');
-const exportCloseBtn = document.getElementById('export-close-btn');
-const exportCancelBtn = document.getElementById('export-cancel-btn');
-const exportConfirmBtn = document.getElementById('export-confirm-btn');
-const pairMergeOption = document.getElementById('pair-merge-option');
-const pairMergeCheckbox = document.getElementById('pair-merge-checkbox');
-const extractHeader = document.getElementById('extract-header');
-const extractSubOptions = document.getElementById('extract-sub-options');
-const separateOption = document.getElementById('separate-option');
-const separateCheckbox = document.getElementById('separate-checkbox');
+const exportModal = document.getElementById("export-modal");
+const exportCount = document.getElementById("export-count");
+const exportCloseBtn = document.getElementById("export-close-btn");
+const exportCancelBtn = document.getElementById("export-cancel-btn");
+const exportConfirmBtn = document.getElementById("export-confirm-btn");
+const pairMergeOption = document.getElementById("pair-merge-option");
+const pairMergeCheckbox = document.getElementById("pair-merge-checkbox");
+const extractHeader = document.getElementById("extract-header");
+const extractSubOptions = document.getElementById("extract-sub-options");
+const separateOption = document.getElementById("separate-option");
+const separateCheckbox = document.getElementById("separate-checkbox");
 let separateAuto = false;
 
-const extractPagesInput = document.getElementById('extract-pages-input');
-const extractFromInput = document.getElementById('extract-from-input');
-const extractToInput = document.getElementById('extract-to-input');
-const extractPagesFields = document.getElementById('extract-pages-fields');
-const extractRangeFields = document.getElementById('extract-range-fields');
-const extractPagesWarning = document.getElementById('extract-pages-warning');
-const extractRangeWarning = document.getElementById('extract-range-warning');
+const extractPagesInput = document.getElementById("extract-pages-input");
+const extractFromInput = document.getElementById("extract-from-input");
+const extractToInput = document.getElementById("extract-to-input");
+const extractPagesFields = document.getElementById("extract-pages-fields");
+const extractRangeFields = document.getElementById("extract-range-fields");
+const extractPagesWarning = document.getElementById("extract-pages-warning");
+const extractRangeWarning = document.getElementById("extract-range-warning");
 let extractError = null;
 
-const previewModal = document.getElementById('preview-modal');
-const closeModal = document.getElementById('close-modal');
-const previewToolbar = previewModal.querySelector('.preview-toolbar');
-const prevPage = document.getElementById('prev-page');
-const nextPage = document.getElementById('next-page');
-const modalPageTitle = document.getElementById('modal-page-title');
-const modalFileName = document.getElementById('modal-file-name');
-const modalCanvas = document.getElementById('modal-canvas');
-const modalRotateBtn = document.getElementById('modal-rotate-btn');
-const modalDeleteBtn = document.getElementById('modal-delete-btn');
-const modalOpenBtn = document.getElementById('modal-open-btn');
-const zoomInBtn = document.getElementById('zoom-in-btn');
-const zoomOutBtn = document.getElementById('zoom-out-btn');
-const zoomLevel = document.getElementById('zoom-level');
+const previewModal = document.getElementById("preview-modal");
+const closeModal = document.getElementById("close-modal");
+const previewToolbar = previewModal.querySelector(".preview-toolbar");
+const prevPage = document.getElementById("prev-page");
+const nextPage = document.getElementById("next-page");
+const modalPageTitle = document.getElementById("modal-page-title");
+const modalFileName = document.getElementById("modal-file-name");
+const modalCanvas = document.getElementById("modal-canvas");
+const modalRotateBtn = document.getElementById("modal-rotate-btn");
+const modalDeleteBtn = document.getElementById("modal-delete-btn");
+const modalOpenBtn = document.getElementById("modal-open-btn");
+const zoomInBtn = document.getElementById("zoom-in-btn");
+const zoomOutBtn = document.getElementById("zoom-out-btn");
+const zoomLevel = document.getElementById("zoom-level");
 
 let currentPreviewPageId = null;
 let previewRenderToken = 0;
@@ -128,93 +128,93 @@ const ZOOM_STEP = 1.25;
 const MAX_CANVAS_PIXELS = 16000000;
 let previewZoom = 1;
 
-addPdfsBtn.addEventListener('click', openFilePicker);
-document.getElementById('upload-box').addEventListener('click', openFilePicker);
-fileInput.addEventListener('change', handleFileSelect);
-deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
-deleteLastPagesBtn.addEventListener('click', handleDeleteLastPages);
-selectAllCheckbox.addEventListener('change', handleSelectAll);
+addPdfsBtn.addEventListener("click", openFilePicker);
+document.getElementById("upload-box").addEventListener("click", openFilePicker);
+fileInput.addEventListener("change", handleFileSelect);
+deleteSelectedBtn.addEventListener("click", handleDeleteSelected);
+deleteLastPagesBtn.addEventListener("click", handleDeleteLastPages);
+selectAllCheckbox.addEventListener("change", handleSelectAll);
 
-viewToggle.addEventListener('click', (e) => {
-  const btn = e.target.closest('.view-opt');
+viewToggle.addEventListener("click", (e) => {
+  const btn = e.target.closest(".view-opt");
   if (!btn) return;
-  fileView = btn.dataset.view === 'files';
-  viewToggle.querySelectorAll('.view-opt').forEach(b => {
-    b.setAttribute('aria-pressed', String(b === btn));
+  fileView = btn.dataset.view === "files";
+  viewToggle.querySelectorAll(".view-opt").forEach(b => {
+    b.setAttribute("aria-pressed", String(b === btn));
   });
   applyView();
   updateStats();
 });
 
-exportBtn.addEventListener('click', openExportModal);
-exportCloseBtn.addEventListener('click', closeExportModal);
-exportCancelBtn.addEventListener('click', closeExportModal);
-exportConfirmBtn.addEventListener('click', handleExportConfirm);
-exportModal.addEventListener('change', (e) => {
-  if (e.target.name === 'exportMode') updateExportSubOptions();
+exportBtn.addEventListener("click", openExportModal);
+exportCloseBtn.addEventListener("click", closeExportModal);
+exportCancelBtn.addEventListener("click", closeExportModal);
+exportConfirmBtn.addEventListener("click", handleExportConfirm);
+exportModal.addEventListener("change", (e) => {
+  if (e.target.name === "exportMode") updateExportSubOptions();
 });
 
 function filterInput(el, disallowed) {
-  const cleaned = el.value.replace(disallowed, '');
+  const cleaned = el.value.replace(disallowed, "");
   if (cleaned === el.value) return;
 
   const caret = el.selectionStart ?? el.value.length;
-  const caretAfter = el.value.slice(0, caret).replace(disallowed, '').length;
+  const caretAfter = el.value.slice(0, caret).replace(disallowed, "").length;
   el.value = cleaned;
   el.setSelectionRange(caretAfter, caretAfter);
 }
 
-extractPagesInput.addEventListener('input', () => {
+extractPagesInput.addEventListener("input", () => {
   filterInput(extractPagesInput, /[^\d,\s]/g);
   updateExtractValidity();
 });
 [extractFromInput, extractToInput].forEach(el =>
-  el.addEventListener('input', () => {
+  el.addEventListener("input", () => {
     filterInput(el, /\D/g);
     updateExtractValidity();
   })
 );
 
 function selectExtract() {
-  const current = document.querySelector('input[name="exportMode"]:checked')?.value || '';
-  if (current.startsWith('extract')) return;
+  const current = document.querySelector('input[name="exportMode"]:checked')?.value || "";
+  if (current.startsWith("extract")) return;
   const radio = document.querySelector('input[name="exportMode"][value="extract-only"]');
   radio.checked = true;
   updateExportSubOptions();
 }
-extractHeader.addEventListener('click', selectExtract);
-extractHeader.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectExtract(); }
+extractHeader.addEventListener("click", selectExtract);
+extractHeader.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectExtract(); }
 });
 
-separateCheckbox.addEventListener('change', () => { separateAuto = false; });
+separateCheckbox.addEventListener("change", () => { separateAuto = false; });
 
-exportModal.addEventListener('mousedown', (e) => {
+exportModal.addEventListener("mousedown", (e) => {
   if (e.target === exportModal) closeExportModal();
 });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !exportModal.classList.contains('hidden')) closeExportModal();
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !exportModal.classList.contains("hidden")) closeExportModal();
 });
 
-closeModal.addEventListener('click', closePreviewModal);
-prevPage.addEventListener('click', navigateToPrevPage);
-nextPage.addEventListener('click', navigateToNextPage);
-modalRotateBtn.addEventListener('click', rotatePreviewPage);
-modalDeleteBtn.addEventListener('click', deletePreviewPage);
-modalOpenBtn.addEventListener('click', openPreviewInNewTab);
+closeModal.addEventListener("click", closePreviewModal);
+prevPage.addEventListener("click", navigateToPrevPage);
+nextPage.addEventListener("click", navigateToNextPage);
+modalRotateBtn.addEventListener("click", rotatePreviewPage);
+modalDeleteBtn.addEventListener("click", deletePreviewPage);
+modalOpenBtn.addEventListener("click", openPreviewInNewTab);
 
 let modalMouseDownTarget = null;
-modalCanvas.addEventListener('mousedown', (e) => { modalMouseDownTarget = e.target; });
+modalCanvas.addEventListener("mousedown", (e) => { modalMouseDownTarget = e.target; });
 
-modalCanvas.addEventListener('click', (e) => {
+modalCanvas.addEventListener("click", (e) => {
   if (e.target !== modalCanvas || modalMouseDownTarget !== modalCanvas) return;
   if (e.clientY < previewToolbar.getBoundingClientRect().bottom) return;
   closePreviewModal();
 });
 
 let resizeTimer;
-window.addEventListener('resize', () => {
+window.addEventListener("resize", () => {
   if (!currentPreviewPageId) return;
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
@@ -223,31 +223,31 @@ window.addEventListener('resize', () => {
   }, 150);
 });
 
-document.addEventListener('keydown', (e) => {
-  if (previewModal.classList.contains('hidden')) return;
+document.addEventListener("keydown", (e) => {
+  if (previewModal.classList.contains("hidden")) return;
 
-  if (e.key === 'Escape') {
+  if (e.key === "Escape") {
     closePreviewModal();
-  } else if (e.key === 'ArrowLeft') {
+  } else if (e.key === "ArrowLeft") {
     navigateToPrevPage();
-  } else if (e.key === 'ArrowRight') {
+  } else if (e.key === "ArrowRight") {
     navigateToNextPage();
-  } else if (e.key === '+' || e.key === '=') {
+  } else if (e.key === "+" || e.key === "=") {
     setPreviewZoom(previewZoom * ZOOM_STEP);
-  } else if (e.key === '-') {
+  } else if (e.key === "-") {
     setPreviewZoom(previewZoom / ZOOM_STEP);
-  } else if (e.key === '0') {
+  } else if (e.key === "0") {
     setPreviewZoom(1);
   }
 });
 
-zoomInBtn.addEventListener('click', () => setPreviewZoom(previewZoom * ZOOM_STEP));
-zoomOutBtn.addEventListener('click', () => setPreviewZoom(previewZoom / ZOOM_STEP));
-zoomLevel.addEventListener('click', () => setPreviewZoom(1));
+zoomInBtn.addEventListener("click", () => setPreviewZoom(previewZoom * ZOOM_STEP));
+zoomOutBtn.addEventListener("click", () => setPreviewZoom(previewZoom / ZOOM_STEP));
+zoomLevel.addEventListener("click", () => setPreviewZoom(1));
 
 let lastWheelZoom = 0;
 const WHEEL_ZOOM_THROTTLE_MS = 120;
-previewModal.addEventListener('wheel', (e) => {
+previewModal.addEventListener("wheel", (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
   if (!e.deltaY) return;
@@ -260,19 +260,19 @@ previewModal.addEventListener('wheel', (e) => {
   else setPreviewZoom(previewZoom / ZOOM_STEP);
 }, { passive: false });
 
-uploadZone.addEventListener('dragover', (e) => {
+uploadZone.addEventListener("dragover", (e) => {
   e.preventDefault();
-  uploadZone.classList.add('drag-over');
+  uploadZone.classList.add("drag-over");
 });
 
-uploadZone.addEventListener('dragleave', (e) => {
+uploadZone.addEventListener("dragleave", (e) => {
   if (e.relatedTarget && uploadZone.contains(e.relatedTarget)) return;
-  uploadZone.classList.remove('drag-over');
+  uploadZone.classList.remove("drag-over");
 });
 
-uploadZone.addEventListener('drop', (e) => {
+uploadZone.addEventListener("drop", (e) => {
   e.preventDefault();
-  uploadZone.classList.remove('drag-over');
+  uploadZone.classList.remove("drag-over");
   const files = Array.from(e.dataTransfer.files);
   processFiles(files);
 });
@@ -284,35 +284,35 @@ function openFilePicker() {
 function handleFileSelect(e) {
   const files = Array.from(e.target.files);
   processFiles(files);
-  fileInput.value = '';
+  fileInput.value = "";
 }
 
 function processFiles(files) {
   loadQueue = loadQueue
     .then(() => processFilesNow(files))
-    .catch(error => console.error('Failed to process files:', error));
+    .catch(error => console.error("Failed to process files:", error));
   return loadQueue;
 }
 
 async function processFilesNow(files) {
-  const invalidFiles = files.filter(f => !f.type.includes('pdf'));
+  const invalidFiles = files.filter(f => !f.type.includes("pdf"));
   if (invalidFiles.length > 0) {
-    alert('Error: Please upload only PDF files.');
+    alert("Error: Please upload only PDF files.");
     return;
   }
 
   if (files.length === 0) return;
 
-  files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
 
   const isFirstUpload = pageManager.getAllPages().length === 0;
   if (isFirstUpload) {
-    outputFilename.value = files[0].name.replace(/\.pdf$/i, '');
+    outputFilename.value = files[0].name.replace(/\.pdf$/i, "");
   }
 
-  uploadZone.classList.add('hidden');
-  pagesGrid.classList.remove('hidden');
-  selectAllContainer.classList.remove('hidden');
+  uploadZone.classList.add("hidden");
+  pagesGrid.classList.remove("hidden");
+  selectAllContainer.classList.remove("hidden");
 
   busy = true;
   updateStats();
@@ -356,41 +356,41 @@ async function loadPDF(file, fileIndex) {
 
 async function renderPage(pdfPage, rotation) {
   const viewport = pdfPage.getViewport({ scale: 0.5, rotation });
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
 
   canvas.height = viewport.height;
   canvas.width = viewport.width;
-  canvas.style.maxWidth = '100%';
-  canvas.style.height = 'auto';
-  canvas.style.display = 'block';
+  canvas.style.maxWidth = "100%";
+  canvas.style.height = "auto";
+  canvas.style.display = "block";
 
   try {
     await pdfPage.render({ canvasContext: context, viewport }).promise;
   } catch (error) {
-    console.error('Error rendering page:', error);
+    console.error("Error rendering page:", error);
   }
 
   return canvas;
 }
 
 async function addPageToGrid(pageObj) {
-  const pageDiv = document.createElement('div');
-  pageDiv.className = 'pdf-page group relative rounded-none bg-gray-100 hover:bg-gray-200/70 p-1.5 cursor-grab active:cursor-grabbing';
+  const pageDiv = document.createElement("div");
+  pageDiv.className = "pdf-page group relative rounded-none bg-gray-100 hover:bg-gray-200/70 p-1.5 cursor-grab active:cursor-grabbing";
   pageDiv.dataset.pageId = pageObj.id;
   pageDiv.draggable = true;
-  pageDiv.classList.toggle('selected', pageObj.selected);
+  pageDiv.classList.toggle("selected", pageObj.selected);
 
   const currentIndex = pageManager.pages.findIndex(p => p.id === pageObj.id);
 
-  const container = document.createElement('div');
-  container.className = 'relative';
+  const container = document.createElement("div");
+  container.className = "relative";
 
-  const checkboxContainer = document.createElement('div');
-  checkboxContainer.className = 'absolute top-3 right-3 z-10';
+  const checkboxContainer = document.createElement("div");
+  checkboxContainer.className = "absolute top-3 right-3 z-10";
   checkboxContainer.innerHTML = `
     <label class="relative block w-6 h-6 cursor-pointer">
-      <input type="checkbox" class="page-checkbox peer sr-only" ${pageObj.selected ? 'checked' : ''}>
+      <input type="checkbox" class="page-checkbox peer sr-only" ${pageObj.selected ? "checked" : ""}>
       <span class="relative w-6 h-6 rounded-full border-2 border-gray-300 bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-white text-sm transition-colors
                    peer-checked:bg-gray-900 peer-checked:border-gray-900
                    peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
@@ -402,25 +402,25 @@ async function addPageToGrid(pageObj) {
     </label>
   `;
 
-  const canvasContainer = document.createElement('div');
-  canvasContainer.className = 'p-2 flex items-center justify-center rounded-xl cursor-pointer';
-  canvasContainer.style.minHeight = '120px';
+  const canvasContainer = document.createElement("div");
+  canvasContainer.className = "p-2 flex items-center justify-center rounded-xl cursor-pointer";
+  canvasContainer.style.minHeight = "120px";
 
-  canvasContainer.addEventListener('click', (e) => {
+  canvasContainer.addEventListener("click", (e) => {
     e.stopPropagation();
     openPreviewModal(pageObj.id);
   });
 
-  const canvasWrapper = document.createElement('div');
-  canvasWrapper.style.maxWidth = '100%';
-  canvasWrapper.style.height = 'auto';
+  const canvasWrapper = document.createElement("div");
+  canvasWrapper.style.maxWidth = "100%";
+  canvasWrapper.style.height = "auto";
 
   const canvas = await renderPage(pageObj.pdfPage, pageObj.rotation);
   canvasWrapper.appendChild(canvas);
   canvasContainer.appendChild(canvasWrapper);
 
-  const bottomControls = document.createElement('div');
-  bottomControls.className = 'page-controls absolute bottom-3 left-3 right-3 z-10 flex items-center justify-center gap-2';
+  const bottomControls = document.createElement("div");
+  bottomControls.className = "page-controls absolute bottom-3 left-3 right-3 z-10 flex items-center justify-center gap-2";
   bottomControls.innerHTML = `
     <button type="button" title="Rotate" aria-label="Rotate page"
       class="rotate-btn w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-md text-gray-700 hover:bg-white hover:text-gray-900 flex items-center justify-center transition-colors">
@@ -436,18 +436,18 @@ async function addPageToGrid(pageObj) {
   container.appendChild(canvasContainer);
   container.appendChild(bottomControls);
 
-  const pageNumberBadge = document.createElement('div');
-  pageNumberBadge.className = 'page-number-badge pt-1 pb-1.5 text-center text-xs font-medium text-gray-500 tabular-nums';
+  const pageNumberBadge = document.createElement("div");
+  pageNumberBadge.className = "page-number-badge pt-1 pb-1.5 text-center text-xs font-medium text-gray-500 tabular-nums";
   pageNumberBadge.textContent = currentIndex + 1;
 
   pageDiv.appendChild(container);
   pageDiv.appendChild(pageNumberBadge);
 
-  const checkbox = pageDiv.querySelector('.page-checkbox');
-  const rotateBtn = pageDiv.querySelector('.rotate-btn');
-  const deleteBtn = pageDiv.querySelector('.delete-btn');
+  const checkbox = pageDiv.querySelector(".page-checkbox");
+  const rotateBtn = pageDiv.querySelector(".rotate-btn");
+  const deleteBtn = pageDiv.querySelector(".delete-btn");
 
-  checkbox.addEventListener('change', (e) => {
+  checkbox.addEventListener("change", (e) => {
     e.stopPropagation();
     if (fileView) {
       const page = pageManager.getPage(pageObj.id);
@@ -457,27 +457,27 @@ async function addPageToGrid(pageObj) {
       syncSelectionUI();
     } else {
       pageManager.toggleSelection(pageObj.id);
-      pageDiv.classList.toggle('selected', pageManager.getPage(pageObj.id).selected);
+      pageDiv.classList.toggle("selected", pageManager.getPage(pageObj.id).selected);
     }
     updateStats();
   });
 
-  rotateBtn.addEventListener('click', async (e) => {
+  rotateBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     pageManager.rotatePage(pageObj.id, 90);
     const page = pageManager.getPage(pageObj.id);
     const newCanvas = await renderPage(page.pdfPage, page.rotation);
-    canvasWrapper.innerHTML = '';
+    canvasWrapper.innerHTML = "";
     canvasWrapper.appendChild(newCanvas);
   });
 
-  deleteBtn.addEventListener('click', (e) => {
+  deleteBtn.addEventListener("click", (e) => {
     e.stopPropagation();
 
     if (fileView) {
       const page = pageManager.getPage(pageObj.id);
       const filePages = pageManager.getAllPages().filter(p => p.fileIndex === page.fileIndex);
-      const pageLabel = filePages.length === 1 ? '1 page' : `all ${filePages.length} pages`;
+      const pageLabel = filePages.length === 1 ? "1 page" : `all ${filePages.length} pages`;
       if (!confirm(`Delete ${pageLabel} of "${page.fileName}"?`)) return;
 
       for (const p of filePages) {
@@ -493,8 +493,8 @@ async function addPageToGrid(pageObj) {
     updateStats();
   });
 
-  pageDiv.addEventListener('dragstart', handleDragStart);
-  pageDiv.addEventListener('dragend', handleDragEnd);
+  pageDiv.addEventListener("dragstart", handleDragStart);
+  pageDiv.addEventListener("dragend", handleDragEnd);
 
   const gridContainer = pagesGrid.querySelector('[class*="grid-cols"]') || pagesGrid;
   gridContainer.appendChild(pageDiv);
@@ -507,24 +507,24 @@ let dragPlan = null;
 let dragPointer = { x: 0, y: 0 };
 let autoScrollRaf = null;
 
-const dropIndicator = document.createElement('div');
-dropIndicator.className = 'drop-indicator';
+const dropIndicator = document.createElement("div");
+dropIndicator.className = "drop-indicator";
 pagesGrid.appendChild(dropIndicator);
 
-mainContent.addEventListener('dragover', handleDragOver);
-mainContent.addEventListener('drop', handleDrop);
-mainContent.addEventListener('dragleave', handleDragLeave);
+mainContent.addEventListener("dragover", handleDragOver);
+mainContent.addEventListener("drop", handleDrop);
+mainContent.addEventListener("dragleave", handleDragLeave);
 
 function handleDragStart(e) {
   const card = e.currentTarget;
   draggedPageId = Number(card.dataset.pageId);
   dragPointer = { x: e.clientX, y: e.clientY };
 
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', String(draggedPageId));
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", String(draggedPageId));
 
   dragGap = parseFloat(getComputedStyle(pagesGrid).columnGap) || 16;
-  dragCache = Array.from(pagesGrid.querySelectorAll('.pdf-page:not(.hidden)')).map(el => ({
+  dragCache = Array.from(pagesGrid.querySelectorAll(".pdf-page:not(.hidden)")).map(el => ({
     id: Number(el.dataset.pageId),
     x: el.offsetLeft,
     y: el.offsetTop,
@@ -532,7 +532,7 @@ function handleDragStart(e) {
     h: el.offsetHeight
   }));
 
-  requestAnimationFrame(() => card.classList.add('dragging'));
+  requestAnimationFrame(() => card.classList.add("dragging"));
 
   startAutoScroll();
 }
@@ -540,7 +540,7 @@ function handleDragStart(e) {
 function handleDragOver(e) {
   if (draggedPageId === null) return;
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
+  e.dataTransfer.dropEffect = "move";
   dragPointer = { x: e.clientX, y: e.clientY };
   updateDropTarget();
 }
@@ -549,7 +549,7 @@ function handleDragLeave(e) {
   if (draggedPageId === null) return;
   if (!mainContent.contains(e.relatedTarget)) {
     dragPlan = null;
-    dropIndicator.classList.remove('visible');
+    dropIndicator.classList.remove("visible");
   }
 }
 
@@ -587,12 +587,12 @@ function finishDrag() {
   draggedPageId = null;
   dragPlan = null;
   dragCache = [];
-  dropIndicator.classList.remove('visible');
+  dropIndicator.classList.remove("visible");
   if (autoScrollRaf) {
     cancelAnimationFrame(autoScrollRaf);
     autoScrollRaf = null;
   }
-  pagesGrid.querySelectorAll('.pdf-page.dragging').forEach(el => el.classList.remove('dragging'));
+  pagesGrid.querySelectorAll(".pdf-page.dragging").forEach(el => el.classList.remove("dragging"));
 }
 
 function updateDropTarget() {
@@ -614,7 +614,7 @@ function updateDropTarget() {
 
   if (!best) {
     dragPlan = null;
-    dropIndicator.classList.remove('visible');
+    dropIndicator.classList.remove("visible");
     return;
   }
 
@@ -626,7 +626,7 @@ function updateDropTarget() {
 
   if (fromIndex === -1 || toIndex === fromIndex) {
     dragPlan = null;
-    dropIndicator.classList.remove('visible');
+    dropIndicator.classList.remove("visible");
     return;
   }
 
@@ -636,7 +636,7 @@ function updateDropTarget() {
   dropIndicator.style.left = `${left}px`;
   dropIndicator.style.top = `${best.y}px`;
   dropIndicator.style.height = `${best.h}px`;
-  dropIndicator.classList.add('visible');
+  dropIndicator.classList.add("visible");
 }
 
 function startAutoScroll() {
@@ -669,8 +669,8 @@ function startAutoScroll() {
 }
 
 function animateReorder(mutate) {
-  const cards = Array.from(pagesGrid.querySelectorAll('.pdf-page'));
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cards = Array.from(pagesGrid.querySelectorAll(".pdf-page"));
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const first = new Map(cards.map(c => [c, c.getBoundingClientRect()]));
 
   mutate();
@@ -685,8 +685,8 @@ function animateReorder(mutate) {
     if (!dx && !dy) continue;
 
     c.animate(
-      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
-      { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }],
+      { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }
     );
   }
 }
@@ -704,14 +704,14 @@ function applyView() {
   const pages = pageManager.getAllPages();
   const reps = new Set(representativePages().map(p => p.id));
 
-  pagesGrid.querySelectorAll('.pdf-page').forEach(el => {
+  pagesGrid.querySelectorAll(".pdf-page").forEach(el => {
     const id = Number(el.dataset.pageId);
     const page = pageManager.getPage(id);
     if (!page) return;
 
-    el.classList.toggle('hidden', fileView && !reps.has(id));
+    el.classList.toggle("hidden", fileView && !reps.has(id));
 
-    const badge = el.querySelector('.page-number-badge');
+    const badge = el.querySelector(".page-number-badge");
     if (fileView) {
       if (!el._nameEl) el._nameEl = createFileNameEl(el, page.fileName);
       if (badge.firstChild !== el._nameEl) badge.replaceChildren(el._nameEl);
@@ -726,32 +726,32 @@ function applyView() {
 function syncSelectionUI() {
   const pages = pageManager.getAllPages();
 
-  pagesGrid.querySelectorAll('.pdf-page').forEach(el => {
+  pagesGrid.querySelectorAll(".pdf-page").forEach(el => {
     const page = pageManager.getPage(Number(el.dataset.pageId));
     if (!page) return;
 
-    const cb = el.querySelector('.page-checkbox');
+    const cb = el.querySelector(".page-checkbox");
     if (fileView) {
       const filePages = pages.filter(p => p.fileIndex === page.fileIndex);
       const count = filePages.filter(p => p.selected).length;
       const all = count === filePages.length;
       cb.checked = all;
       cb.indeterminate = count > 0 && !all;
-      el.classList.toggle('selected', count > 0);
+      el.classList.toggle("selected", count > 0);
     } else {
       cb.checked = page.selected;
       cb.indeterminate = false;
-      el.classList.toggle('selected', page.selected);
+      el.classList.toggle("selected", page.selected);
     }
   });
 }
 
 function createFileNameEl(card, name) {
-  const el = document.createElement('div');
-  el.className = 'file-name';
+  const el = document.createElement("div");
+  el.className = "file-name";
   el.title = name;
 
-  const text = document.createElement('span');
+  const text = document.createElement("span");
   text.textContent = name;
   el.appendChild(text);
 
@@ -789,11 +789,11 @@ function updatePageNumbers() {
 
 function handleSelectAll(e) {
   pageManager.selectAll(e.target.checked);
-  document.querySelectorAll('.page-checkbox').forEach(cb => {
+  document.querySelectorAll(".page-checkbox").forEach(cb => {
     cb.checked = e.target.checked;
   });
-  document.querySelectorAll('.pdf-page').forEach(page => {
-    page.classList.toggle('selected', e.target.checked);
+  document.querySelectorAll(".pdf-page").forEach(page => {
+    page.classList.toggle("selected", e.target.checked);
   });
   syncSelectionUI();
   updateStats();
@@ -803,7 +803,7 @@ function handleDeleteSelected() {
   const selected = pageManager.getSelectedPages();
   if (selected.length === 0) return;
 
-  const label = selected.length === 1 ? '1 selected page' : `${selected.length} selected pages`;
+  const label = selected.length === 1 ? "1 selected page" : `${selected.length} selected pages`;
   if (!confirm(`Delete ${label}?`)) return;
 
   for (const page of selected) {
@@ -821,7 +821,7 @@ function handleDeleteLastPages() {
   const targets = [...lastByFile.values()];
   if (targets.length === 0) return;
 
-  const label = targets.length === 1 ? 'the last page of 1 selected file' : `the last page of ${targets.length} selected files`;
+  const label = targets.length === 1 ? "the last page of 1 selected file" : `the last page of ${targets.length} selected files`;
   if (!confirm(`Delete ${label}?`)) return;
 
   for (const page of targets) {
@@ -882,27 +882,27 @@ function openExportModal() {
 
   if (fileView) {
     const fileCount = selectedFileOrder().length;
-    exportCount.textContent = fileCount === 1 ? '1 file' : `${fileCount} files`;
+    exportCount.textContent = fileCount === 1 ? "1 file" : `${fileCount} files`;
   } else {
-    exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
+    exportCount.textContent = count === 1 ? "1 page" : `${count} pages`;
   }
 
-  document.getElementById('merge-desc').textContent = fileView
-    ? 'Combine all pages of the selected files into one PDF'
-    : 'Combine selected pages into one PDF';
-  document.getElementById('extract-only-desc').textContent = fileView
-    ? 'Export each selected file as its own PDF'
-    : 'Export each selected page as its own PDF';
+  document.getElementById("merge-desc").textContent = fileView
+    ? "Combine all pages of the selected files into one PDF"
+    : "Combine selected pages into one PDF";
+  document.getElementById("extract-only-desc").textContent = fileView
+    ? "Export each selected file as its own PDF"
+    : "Export each selected page as its own PDF";
 
-  document.getElementById('extract-first-option').classList.toggle('hidden', !fileView);
-  document.getElementById('extract-last-option').classList.toggle('hidden', !fileView);
+  document.getElementById("extract-first-option").classList.toggle("hidden", !fileView);
+  document.getElementById("extract-last-option").classList.toggle("hidden", !fileView);
 
-  document.getElementById('extract-pages-desc').textContent = fileView
-    ? 'Export the same page numbers from each selected file'
-    : 'Export only the page numbers you enter';
-  document.getElementById('extract-range-desc').textContent = fileView
-    ? 'Export the same page range from each selected file'
-    : 'Export every page from one number to another';
+  document.getElementById("extract-pages-desc").textContent = fileView
+    ? "Export the same page numbers from each selected file"
+    : "Export only the page numbers you enter";
+  document.getElementById("extract-range-desc").textContent = fileView
+    ? "Export the same page range from each selected file"
+    : "Export every page from one number to another";
 
   if (fileView) {
     const fileCount = selectedFileOrder().length;
@@ -910,38 +910,38 @@ function openExportModal() {
 
     pairMergeCheckbox.disabled = !ok;
     if (!ok) pairMergeCheckbox.checked = false;
-    pairMergeOption.classList.toggle('opacity-40', !ok);
-    pairMergeOption.classList.toggle('cursor-not-allowed', !ok);
-    pairMergeOption.classList.toggle('cursor-pointer', ok);
+    pairMergeOption.classList.toggle("opacity-40", !ok);
+    pairMergeOption.classList.toggle("cursor-not-allowed", !ok);
+    pairMergeOption.classList.toggle("cursor-pointer", ok);
 
-    pairMergeOption.title = ok ? '' : `Needs an even number of selected files (${fileCount} selected)`;
+    pairMergeOption.title = ok ? "" : `Needs an even number of selected files (${fileCount} selected)`;
   }
 
   const checkedMode = document.querySelector('input[name="exportMode"]:checked');
-  if (checkedMode && (checkedMode.disabled || checkedMode.closest('label').classList.contains('hidden'))) {
+  if (checkedMode && (checkedMode.disabled || checkedMode.closest("label").classList.contains("hidden"))) {
     document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
   }
 
   updateExportSubOptions();
 
-  exportModal.classList.remove('hidden');
+  exportModal.classList.remove("hidden");
   exportConfirmBtn.focus();
 }
 
 function updateExportSubOptions() {
   const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
-  const isMerge = mode === 'merge';
+  const isMerge = mode === "merge";
 
-  const isExtract = !!mode && mode.startsWith('extract');
+  const isExtract = !!mode && mode.startsWith("extract");
 
-  pairMergeOption.classList.toggle('hidden', !(fileView && isMerge));
-  extractSubOptions.classList.toggle('hidden', !isExtract);
-  extractHeader.classList.toggle('bg-gray-100', isExtract);
+  pairMergeOption.classList.toggle("hidden", !(fileView && isMerge));
+  extractSubOptions.classList.toggle("hidden", !isExtract);
+  extractHeader.classList.toggle("bg-gray-100", isExtract);
 
   if (isMerge) {
     separateCheckbox.checked = false;
     separateAuto = false;
-  } else if (mode === 'extract-only') {
+  } else if (mode === "extract-only") {
     if (!separateCheckbox.checked) {
       separateCheckbox.checked = true;
       separateAuto = true;
@@ -951,37 +951,37 @@ function updateExportSubOptions() {
     separateAuto = false;
   }
 
-  const locked = isMerge || mode === 'extract-only';
+  const locked = isMerge || mode === "extract-only";
   separateCheckbox.disabled = locked;
-  separateOption.classList.toggle('opacity-40', locked);
-  separateOption.classList.toggle('cursor-not-allowed', locked);
-  separateOption.classList.toggle('cursor-pointer', !locked);
-  separateOption.classList.toggle('hover:bg-gray-100', !locked);
+  separateOption.classList.toggle("opacity-40", locked);
+  separateOption.classList.toggle("cursor-not-allowed", locked);
+  separateOption.classList.toggle("cursor-pointer", !locked);
+  separateOption.classList.toggle("hover:bg-gray-100", !locked);
 
-  extractPagesFields.classList.toggle('hidden', mode !== 'extract-pages');
-  extractRangeFields.classList.toggle('hidden', mode !== 'extract-range');
+  extractPagesFields.classList.toggle("hidden", mode !== "extract-pages");
+  extractRangeFields.classList.toggle("hidden", mode !== "extract-range");
   updateExtractValidity();
 }
 
 function closeExportModal() {
-  exportModal.classList.add('hidden');
+  exportModal.classList.add("hidden");
 }
 
 function handleExportConfirm() {
   const mode = document.querySelector('input[name="exportMode"]:checked').value;
 
-  if ((mode === 'extract-pages' || mode === 'extract-range') && getExtractRequest().error) return;
+  if ((mode === "extract-pages" || mode === "extract-range") && getExtractRequest().error) return;
 
   closeExportModal();
 
-  if (mode === 'extract-only') {
+  if (mode === "extract-only") {
     if (fileView) handleSeparateFiles();
     else handleSeparatePages();
-  } else if (mode === 'extract-first') {
-    handleExtractEdgePages('first');
-  } else if (mode === 'extract-last') {
-    handleExtractEdgePages('last');
-  } else if (mode === 'extract-pages' || mode === 'extract-range') {
+  } else if (mode === "extract-first") {
+    handleExtractEdgePages("first");
+  } else if (mode === "extract-last") {
+    handleExtractEdgePages("last");
+  } else if (mode === "extract-pages" || mode === "extract-range") {
     handleExtractSpecific();
   } else if (fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
     handleMergeInPairs();
@@ -1011,9 +1011,9 @@ async function handleMerge() {
 
     const pdfBytes = await mergedPdf.save();
     const filename = exportBaseName();
-    downloadFile(pdfBytes, `${filename}.pdf`, 'application/pdf');
+    downloadFile(pdfBytes, `${filename}.pdf`, "application/pdf");
   } catch (error) {
-    console.error('Merge failed:', error);
+    console.error("Merge failed:", error);
     alert(`Error merging PDF: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
@@ -1040,7 +1040,7 @@ async function handleSeparatePages() {
 
       const pdfBytes = await singlePdf.save();
       const pageIndex = allPages.findIndex(p => p.id === page.id);
-      downloadFile(pdfBytes, `${filename}-${padNum(pageIndex + 1, allPages.length)}.pdf`, 'application/pdf');
+      downloadFile(pdfBytes, `${filename}-${padNum(pageIndex + 1, allPages.length)}.pdf`, "application/pdf");
     } else {
       const folderName = exportFolderName();
       const zip = new JSZip();
@@ -1061,11 +1061,11 @@ async function handleSeparatePages() {
         }
       }
 
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
     }
   } catch (error) {
-    console.error('Separate pages failed:', error);
+    console.error("Separate pages failed:", error);
     alert(`Error separating pages: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
@@ -1119,17 +1119,17 @@ async function handleMergeInPairs() {
     }
 
     if (results.length === 1) {
-      downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+      downloadFile(results[0].bytes, results[0].name, "application/pdf");
     } else {
       const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
       results.forEach(r => folder.file(r.name, r.bytes));
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
     }
   } catch (error) {
-    console.error('Merge in pairs failed:', error);
+    console.error("Merge in pairs failed:", error);
     alert(`Error merging files: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
@@ -1172,17 +1172,17 @@ async function handleSeparateFiles() {
     }
 
     if (results.length === 1) {
-      downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+      downloadFile(results[0].bytes, results[0].name, "application/pdf");
     } else {
       const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
       results.forEach(r => folder.file(r.name, r.bytes));
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
     }
   } catch (error) {
-    console.error('Separate files failed:', error);
+    console.error("Separate files failed:", error);
     alert(`Error saving files: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
@@ -1199,7 +1199,7 @@ async function handleExtractEdgePages(which) {
 
   const edgeByFile = new Map();
   for (const page of selected) {
-    if (which === 'first') {
+    if (which === "first") {
       if (!edgeByFile.has(page.fileIndex)) edgeByFile.set(page.fileIndex, page);
     } else {
       edgeByFile.set(page.fileIndex, page);
@@ -1223,7 +1223,7 @@ async function handleExtractEdgePages(which) {
         }
       }
       const bytes = await outPdf.save();
-      downloadFile(bytes, `${exportBaseName()}${suffix}.pdf`, 'application/pdf');
+      downloadFile(bytes, `${exportBaseName()}${suffix}.pdf`, "application/pdf");
     } else {
       const results = [];
 
@@ -1239,14 +1239,14 @@ async function handleExtractEdgePages(which) {
       }
 
       if (results.length === 1) {
-        downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+        downloadFile(results[0].bytes, results[0].name, "application/pdf");
       } else {
         const folderName = exportFolderName();
         const zip = new JSZip();
         const folder = zip.folder(folderName);
         results.forEach(r => folder.file(r.name, r.bytes));
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
       }
     }
   } catch (error) {
@@ -1260,37 +1260,37 @@ async function handleExtractEdgePages(which) {
 
 function getExtractRequest() {
   const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
-  if (mode !== 'extract-pages' && mode !== 'extract-range') return { error: null };
+  if (mode !== "extract-pages" && mode !== "extract-range") return { error: null };
 
   let numbers = null;
   let rangeFrom = 0;
   let rangeTo = 0;
   let label;
 
-  if (mode === 'extract-pages') {
+  if (mode === "extract-pages") {
     const raw = extractPagesInput.value.trim();
-    if (!raw) return { error: 'Enter a page number.', silent: true };
+    if (!raw) return { error: "Enter a page number.", silent: true };
 
     const tokens = raw.split(/[\s,]+/).filter(Boolean);
     if (!tokens.every(t => /^\d+$/.test(t))) {
-      return { error: 'Use whole numbers separated by commas, e.g. 2, 5, 9.' };
+      return { error: "Use whole numbers separated by commas, e.g. 2, 5, 9." };
     }
 
     numbers = [...new Set(tokens.map(Number))].sort((a, b) => a - b);
-    if (numbers[0] < 1) return { error: 'Page numbers start at 1.' };
+    if (numbers[0] < 1) return { error: "Page numbers start at 1." };
 
-    label = numbers.length === 1 ? `_page-${numbers[0]}` : `_pages-${numbers.join('-')}`;
+    label = numbers.length === 1 ? `_page-${numbers[0]}` : `_pages-${numbers.join("-")}`;
   } else {
     const fromRaw = extractFromInput.value.trim();
     const toRaw = extractToInput.value.trim();
-    if (!fromRaw || !toRaw) return { error: 'Enter both a first and a last page.', silent: true };
+    if (!fromRaw || !toRaw) return { error: "Enter both a first and a last page.", silent: true };
     if (!/^\d+$/.test(fromRaw) || !/^\d+$/.test(toRaw)) {
-      return { error: 'Page numbers must be whole numbers.' };
+      return { error: "Page numbers must be whole numbers." };
     }
 
     rangeFrom = Number(fromRaw);
     rangeTo = Number(toRaw);
-    if (rangeFrom < 1) return { error: 'Page numbers start at 1.' };
+    if (rangeFrom < 1) return { error: "Page numbers start at 1." };
     if (rangeFrom > rangeTo) {
       return { error: `The first page (${rangeFrom}) can't be after the last page (${rangeTo}).` };
     }
@@ -1313,13 +1313,13 @@ function getExtractRequest() {
       const filePages = selected.filter(p => p.fileIndex === fileIndex);
       if (filePages.length < max) {
         const n = filePages.length;
-        tooShort.push(`"${filePages[0].fileName}" has only ${n} selected page${n === 1 ? '' : 's'}`);
+        tooShort.push(`"${filePages[0].fileName}" has only ${n} selected page${n === 1 ? "" : "s"}`);
       }
       groups.push(filePages.filter((p, i) => has(i + 1)));
     }
 
     if (tooShort.length) {
-      const more = tooShort.length > 1 ? ` (and ${tooShort.length - 1} more)` : '';
+      const more = tooShort.length > 1 ? ` (and ${tooShort.length - 1} more)` : "";
       return { error: `Page ${max} doesn't exist in every selected file: ${tooShort[0]}${more}.` };
     }
     return { error: null, groups, label };
@@ -1327,12 +1327,12 @@ function getExtractRequest() {
 
   if (max > all.length) {
     const n = all.length;
-    return { error: `Page ${max} doesn't exist: only ${n} page${n === 1 ? ' is' : 's are'} loaded.` };
+    return { error: `Page ${max} doesn't exist: only ${n} page${n === 1 ? " is" : "s are"} loaded.` };
   }
 
   const pages = all.filter((p, i) => p.selected && has(i + 1));
   if (pages.length === 0) {
-    return { error: 'None of the selected pages are in that selection. Select those pages first.' };
+    return { error: "None of the selected pages are in that selection. Select those pages first." };
   }
   return { error: null, groups: pages.map(p => [p]), label };
 }
@@ -1342,16 +1342,16 @@ function updateExtractValidity() {
   extractError = req.error || null;
 
   const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
-  const target = mode === 'extract-range' ? extractRangeWarning : extractPagesWarning;
+  const target = mode === "extract-range" ? extractRangeWarning : extractPagesWarning;
   const show = !!req.error && !req.silent;
 
   for (const el of [extractPagesWarning, extractRangeWarning]) {
     const active = show && el === target;
-    el.classList.toggle('hidden', !active);
-    el.querySelector('.warning-text').textContent = active ? req.error : '';
+    el.classList.toggle("hidden", !active);
+    el.querySelector(".warning-text").textContent = active ? req.error : "";
   }
 
-  if (show) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  if (show) target.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
   exportConfirmBtn.disabled = busy || pageManager.getSelectedPages().length === 0 || !!extractError;
 }
@@ -1385,17 +1385,17 @@ async function handleExtractSpecific() {
     }
 
     if (results.length === 1) {
-      downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+      downloadFile(results[0].bytes, results[0].name, "application/pdf");
     } else {
       const folderName = exportFolderName();
       const zip = new JSZip();
       const folder = zip.folder(folderName);
       results.forEach(r => folder.file(r.name, r.bytes));
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
     }
   } catch (error) {
-    console.error('Extract specific pages failed:', error);
+    console.error("Extract specific pages failed:", error);
     alert(`Error extracting pages: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
@@ -1404,16 +1404,16 @@ async function handleExtractSpecific() {
 }
 
 function exportBaseName() {
-  return outputFilename.value.trim() || 'Untitled';
+  return outputFilename.value.trim() || "Untitled";
 }
 
 function padNum(n, total) {
-  return String(n).padStart(Math.max(2, String(total).length), '0');
+  return String(n).padStart(Math.max(2, String(total).length), "0");
 }
 
 function exportFolderName() {
   const d = new Date();
-  const p = n => String(n).padStart(2, '0');
+  const p = n => String(n).padStart(2, "0");
   const date = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
   const time = `${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
   return `pdf-manager-${date}-${time}`;
@@ -1422,7 +1422,7 @@ function exportFolderName() {
 function downloadFile(data, filename, mimeType) {
   const blob = new Blob([data], { type: mimeType });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -1442,16 +1442,16 @@ async function openPreviewModal(pageId) {
   modalPageTitle.textContent = `Page ${pageIndex + 1} of ${scope.length}`;
   modalFileName.textContent = page.fileName;
 
-  previewModal.classList.remove('hidden');
+  previewModal.classList.remove("hidden");
   updateNavigationButtons();
   await renderPreviewPage(page, { resetView: true });
 }
 
 function closePreviewModal() {
   previewRenderToken++;
-  previewModal.classList.add('hidden');
+  previewModal.classList.add("hidden");
   currentPreviewPageId = null;
-  modalCanvas.innerHTML = '';
+  modalCanvas.innerHTML = "";
 }
 
 function setPreviewZoom(z) {
@@ -1484,29 +1484,29 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
 
   const viewport = page.pdfPage.getViewport({ scale: renderScale, rotation: page.rotation });
 
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = Math.floor(viewport.width);
   canvas.height = Math.floor(viewport.height);
   canvas.style.width = `${base.width * cssScale}px`;
   canvas.style.height = `${base.height * cssScale}px`;
 
   try {
-    await page.pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    await page.pdfPage.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
   } catch (error) {
-    console.error('Error rendering preview page:', error);
+    console.error("Error rendering preview page:", error);
     return;
   }
 
   if (token !== previewRenderToken) return;
 
-  const wrapper = document.createElement('div');
-  wrapper.className = 'preview-page';
+  const wrapper = document.createElement("div");
+  wrapper.className = "preview-page";
   wrapper.style.width = canvas.style.width;
   wrapper.style.height = canvas.style.height;
 
-  const textLayer = document.createElement('div');
-  textLayer.className = 'textLayer';
-  textLayer.style.setProperty('--scale-factor', cssScale);
+  const textLayer = document.createElement("div");
+  textLayer.className = "textLayer";
+  textLayer.style.setProperty("--scale-factor", cssScale);
 
   wrapper.append(canvas, textLayer);
   modalCanvas.replaceChildren(wrapper);
@@ -1518,7 +1518,7 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
     modalCanvas.scrollTop = cy * modalCanvas.scrollHeight - modalCanvas.clientHeight / 2;
   }
 
-  previewModal.style.setProperty('--sbw', `${modalCanvas.offsetWidth - modalCanvas.clientWidth}px`);
+  previewModal.style.setProperty("--sbw", `${modalCanvas.offsetWidth - modalCanvas.clientWidth}px`);
 
   zoomLevel.textContent = `${Math.round(cssScale * 100)}%`;
 
@@ -1533,7 +1533,7 @@ async function renderPreviewTextLayer(page, container, scale, token) {
     const viewport = page.pdfPage.getViewport({ scale, rotation: page.rotation });
     await pdfjsLib.renderTextLayer({ textContentSource: textContent, container, viewport }).promise;
   } catch (error) {
-    console.error('Error rendering text layer:', error);
+    console.error("Error rendering text layer:", error);
   }
 }
 
@@ -1570,11 +1570,11 @@ function updateNavigationButtons() {
   const allPages = previewScopePages();
   const currentIndex = allPages.findIndex(p => p.id === currentPreviewPageId);
 
-  prevPage.style.opacity = currentIndex > 0 ? '1' : '0.3';
-  prevPage.style.cursor = currentIndex > 0 ? 'pointer' : 'not-allowed';
+  prevPage.style.opacity = currentIndex > 0 ? "1" : "0.3";
+  prevPage.style.cursor = currentIndex > 0 ? "pointer" : "not-allowed";
 
-  nextPage.style.opacity = currentIndex < allPages.length - 1 ? '1' : '0.3';
-  nextPage.style.cursor = currentIndex < allPages.length - 1 ? 'pointer' : 'not-allowed';
+  nextPage.style.opacity = currentIndex < allPages.length - 1 ? "1" : "0.3";
+  nextPage.style.cursor = currentIndex < allPages.length - 1 ? "pointer" : "not-allowed";
 }
 
 const sourceUrls = new Map();
@@ -1589,7 +1589,7 @@ function openPreviewInNewTab() {
     sourceUrls.set(page.fileIndex, url);
   }
 
-  window.open(`${url}#page=${page.originalPageNum}`, '_blank', 'noopener');
+  window.open(`${url}#page=${page.originalPageNum}`, "_blank", "noopener");
 }
 
 function deletePreviewPage() {
@@ -1626,9 +1626,9 @@ async function rotatePreviewPage() {
 
   const pageDiv = document.querySelector(`[data-page-id="${currentPreviewPageId}"]`);
   if (pageDiv) {
-    const canvasWrapper = pageDiv.querySelector('.p-2 > div');
+    const canvasWrapper = pageDiv.querySelector(".p-2 > div");
     const newCanvas = await renderPage(page.pdfPage, page.rotation);
-    canvasWrapper.innerHTML = '';
+    canvasWrapper.innerHTML = "";
     canvasWrapper.appendChild(newCanvas);
   }
 }
