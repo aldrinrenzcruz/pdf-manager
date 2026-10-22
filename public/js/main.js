@@ -1072,6 +1072,14 @@ function openExportModal() {
     : 'Save each selected page as its own PDF';
   document.getElementById('trimLastOption').classList.toggle('hidden', !fileView);
 
+  // Extract last pages: Files view only
+  document.getElementById('lastPageOption').classList.toggle('hidden', !fileView);
+  if (fileView) {
+    const lastCount = selectedFileOrder().length;
+    document.getElementById('lastPageDesc').textContent =
+      `Combine the last page of each selected file into one PDF (${lastCount} page${lastCount === 1 ? '' : 's'})`;
+  }
+
   // Merge in pairs: Files view only, and only when the selected files pair up evenly
   const pairOption = document.getElementById('pairMergeOption');
   const pairInput = document.getElementById('pairMergeInput');
@@ -1123,6 +1131,8 @@ function handleExportConfirm() {
     handleMergeInPairs();
   } else if (mode === 'trim-last') {
     handleTrimLast();
+  } else if (mode === 'extract-last') {
+    handleExtractLastPages();
   } else {
     handleMerge();
   }
@@ -1418,6 +1428,47 @@ async function handleTrimLast() {
   } catch (error) {
     console.error('Trim last page failed:', error);
     alert(`Error trimming files: ${error.message}\n\nCheck console for details.`);
+  } finally {
+    busy = false;
+    updateStats();
+  }
+}
+
+// Files view export: the last page of each selected file, combined into one PDF.
+// Files appear in their Files view order; "last page" = the last selected page
+// of that file in the current order, with its current rotation.
+async function handleExtractLastPages() {
+  const selected = pageManager.getSelectedPages();
+  if (selected.length === 0) return;
+
+  // Last selected page per file
+  const lastByFile = new Map();
+  for (const page of selected) lastByFile.set(page.fileIndex, page);
+
+  // Order the pages the way the file cards are ordered
+  const lastPages = selectedFileOrder().map(fileIndex => lastByFile.get(fileIndex));
+
+  busy = true;
+  updateStats();
+
+  try {
+    const loadedPdfs = await loadSourcePdfs(lastPages);
+    const outPdf = await PDFLib.PDFDocument.create();
+
+    for (const page of lastPages) {
+      try {
+        await copyPageInto(outPdf, loadedPdfs, page);
+      } catch (pageError) {
+        throw new Error(`Failed on "${page.fileName}": ${pageError.message}`);
+      }
+    }
+
+    const bytes = await outPdf.save();
+    const base = outputFilename.value.trim() || 'last-pages';
+    downloadFile(bytes, `${base}_last-pages.pdf`, 'application/pdf');
+  } catch (error) {
+    console.error('Extract last pages failed:', error);
+    alert(`Error extracting last pages: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
     updateStats();
