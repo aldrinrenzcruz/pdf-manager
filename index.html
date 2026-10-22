@@ -38,18 +38,18 @@
       <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         <h1 class="font-display text-sm font-semibold text-gray-900 whitespace-nowrap">PDF Manager</h1>
 
-        <input type="text" id="outputFilename" placeholder="Filename" aria-label="Filename" spellcheck="false"
+        <input type="text" id="output-filename" placeholder="Filename" aria-label="Filename" spellcheck="false"
           class="w-64 h-8 px-3 text-sm font-medium text-center text-gray-900 placeholder-gray-400 bg-transparent border-0 rounded-lg hover:bg-gray-100 focus:bg-gray-100 focus:outline-none focus:ring-0">
 
         <div class="flex items-center justify-end gap-2">
-          <button id="addPdfsBtn" type="button" title="Import PDFs"
+          <button id="add-pdfs-btn" type="button" title="Import PDFs"
             class="text-gray-700 hover:bg-gray-100 h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
             <i class="bi bi-box-arrow-in-down"></i>
             Import
           </button>
-          <input type="file" id="fileInput" accept=".pdf" multiple class="hidden">
+          <input type="file" id="file-input" accept=".pdf" multiple class="hidden">
 
-          <button id="exportBtn" disabled title="Export selected pages"
+          <button id="export-btn" disabled title="Export selected pages"
             class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
             <i class="bi bi-box-arrow-up"></i>
             Export
@@ -58,12 +58,12 @@
       </div>
     </header>
 
-    <div id="selectAllContainer"
+    <div id="select-all-container"
       class="hidden grid grid-cols-[1fr_auto_1fr] items-center gap-3 bg-white border-b border-gray-200 px-4 py-1">
       <div class="flex items-center gap-2">
         <label title="Select all pages"
           class="flex items-center gap-2.5 h-8 pl-2 pr-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-          <input type="checkbox" id="selectAllCheckbox" class="peer sr-only">
+          <input type="checkbox" id="select-all-checkbox" class="peer sr-only">
           <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
                        peer-checked:bg-gray-900 peer-checked:border-gray-900
                        peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
@@ -73,25 +73,25 @@
             <i class="i-dash bi bi-dash-lg absolute opacity-0 transition-opacity"></i>
           </span>
           <span class="text-sm font-medium text-gray-700 whitespace-nowrap">Select all</span>
-          <span class="text-sm text-gray-400 tabular-nums whitespace-nowrap"><span id="selectedPages">0</span> of <span id="totalPages">0</span> selected</span>
+          <span class="text-sm text-gray-400 tabular-nums whitespace-nowrap"><span id="selected-pages">0</span> of <span id="total-pages">0</span> selected</span>
         </label>
       </div>
 
       <div class="flex items-center justify-center gap-2">
-        <button id="deleteSelectedBtn" disabled title="Delete selected pages"
+        <button id="delete-selected-btn" disabled title="Delete selected pages"
           class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
           <i class="bi bi-trash"></i>
           Delete
         </button>
-        <button id="deleteLastPagesBtn" disabled title="Delete the last page of each selected file"
+        <button id="delete-last-pages-btn" disabled title="Delete the last page of each selected file"
           class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
           <i class="bi bi-file-earmark-minus"></i>
           Delete last pages
         </button>
       </div>
 
-      <div id="toolbarActions" class="flex items-center justify-end gap-2">
-        <div id="viewToggle" role="group" aria-label="View mode"
+      <div id="toolbar-actions" class="flex items-center justify-end gap-2">
+        <div id="view-toggle" role="group" aria-label="View mode"
           class="flex items-center p-0.5 bg-gray-100 rounded-full text-sm font-medium">
           <button type="button" data-view="pages" aria-pressed="true" title="Show every page"
             class="view-opt h-7 px-3 rounded-full flex items-center gap-1.5 transition-colors">
@@ -105,9 +105,9 @@
       </div>
     </div>
 
-    <div id="mainContent" class="flex-1 overflow-y-auto p-6 flex flex-col">
-      <div id="uploadZone" class="drop-zone group flex-1 -m-6 flex items-center justify-center">
-        <div id="uploadBox"
+    <div id="main-content" class="flex-1 overflow-y-auto p-6 flex flex-col">
+      <div id="upload-zone" class="drop-zone group flex-1 -m-6 flex items-center justify-center">
+        <div id="upload-box"
           class="w-[min(42rem,90vw)] h-96 flex flex-col items-center justify-center rounded-2xl cursor-pointer
                  border-2 border-dashed border-blue-200 bg-blue-50/60
                  hover:border-blue-300 hover:bg-blue-50
@@ -119,23 +119,23 @@
         </div>
       </div>
 
-      <div id="pagesGrid" class="hidden relative w-full grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+      <div id="pages-grid" class="hidden relative w-full grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
       </div>
     </div>
   </div>
 
-  <div id="exportModal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4"
-    role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+  <div id="export-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4"
+    role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl h-[42rem] max-h-full flex flex-col p-8">
       <div class="flex items-center justify-between mb-2 shrink-0">
-        <h3 id="exportModalTitle" class="font-display text-xl font-semibold text-gray-900">Export</h3>
-        <button id="exportCloseBtn" type="button" aria-label="Close" title="Close (Esc)"
+        <h3 id="export-modal-title" class="font-display text-xl font-semibold text-gray-900">Export</h3>
+        <button id="export-close-btn" type="button" aria-label="Close" title="Close (Esc)"
           class="text-gray-500 hover:text-gray-900 hover:bg-gray-100 w-12 h-12 -mr-3 rounded-full flex items-center justify-center text-xl transition-colors">
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
       <p class="text-base text-gray-500 mb-6 shrink-0">
-        <span id="exportCount" class="font-medium text-gray-700">0 pages</span> selected. Choose how to export them.
+        <span id="export-count" class="font-medium text-gray-700">0 pages</span> selected. Choose how to export them.
       </p>
 
       <div class="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
@@ -147,14 +147,14 @@
             <i class="bi bi-files text-2xl"></i>
             <div>
               <div class="text-base font-semibold text-gray-900">Merge</div>
-              <div id="mergeDesc" class="text-sm text-gray-500">Combine selected pages into one PDF</div>
+              <div id="merge-desc" class="text-sm text-gray-500">Combine selected pages into one PDF</div>
             </div>
           </div>
           <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
         </label>
 
-        <label id="pairMergeOption" class="hidden flex items-center gap-3 w-fit ml-16 mb-1 py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-          <input type="checkbox" id="pairMergeCheckbox" class="peer sr-only">
+        <label id="pair-merge-option" class="hidden flex items-center gap-3 w-fit ml-16 mb-1 py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
+          <input type="checkbox" id="pair-merge-checkbox" class="peer sr-only">
           <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
                        peer-checked:bg-gray-900 peer-checked:border-gray-900
                        peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
@@ -167,7 +167,7 @@
           </span>
         </label>
 
-        <div id="extractHeader" role="button" tabindex="0"
+        <div id="extract-header" role="button" tabindex="0"
           class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors">
           <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
           <div>
@@ -176,156 +176,156 @@
           </div>
         </div>
 
-        <div id="extractSubOptions" class="hidden space-y-2">
+        <div id="extract-sub-options" class="hidden space-y-2">
 
-        <label id="extractOnlyOption" class="relative block cursor-pointer ml-10">
-          <input type="radio" name="exportMode" value="extract-only" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
+          <label id="extract-only-option" class="relative block cursor-pointer ml-10">
+            <input type="radio" name="exportMode" value="extract-only" class="peer sr-only">
+            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <div>
-              <div class="text-base font-medium text-gray-900">Extract only</div>
-              <div id="extractOnlyDesc" class="text-sm text-gray-500">Export each selected page as its own PDF</div>
+              <div>
+                <div class="text-base font-medium text-gray-900">Extract only</div>
+                <div id="extract-only-desc" class="text-sm text-gray-500">Export each selected page as its own PDF</div>
+              </div>
             </div>
-          </div>
-          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
-        </label>
+            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+          </label>
 
-        <label id="extractFirstOption" class="hidden relative block cursor-pointer ml-10">
-          <input type="radio" name="exportMode" value="extract-first" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
+          <label id="extract-first-option" class="hidden relative block cursor-pointer ml-10">
+            <input type="radio" name="exportMode" value="extract-first" class="peer sr-only">
+            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <div>
-              <div class="text-base font-medium text-gray-900">Extract first pages</div>
-              <div class="text-sm text-gray-500">Export the first page of each selected file</div>
+              <div>
+                <div class="text-base font-medium text-gray-900">Extract first pages</div>
+                <div class="text-sm text-gray-500">Export the first page of each selected file</div>
+              </div>
             </div>
-          </div>
-          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
-        </label>
+            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+          </label>
 
-        <label id="extractLastOption" class="hidden relative block cursor-pointer ml-10">
-          <input type="radio" name="exportMode" value="extract-last" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
+          <label id="extract-last-option" class="hidden relative block cursor-pointer ml-10">
+            <input type="radio" name="exportMode" value="extract-last" class="peer sr-only">
+            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <div>
-              <div class="text-base font-medium text-gray-900">Extract last pages</div>
-              <div class="text-sm text-gray-500">Export the last page of each selected file</div>
+              <div>
+                <div class="text-base font-medium text-gray-900">Extract last pages</div>
+                <div class="text-sm text-gray-500">Export the last page of each selected file</div>
+              </div>
             </div>
-          </div>
-          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
-        </label>
+            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+          </label>
 
-        <label id="extractPagesOption" class="relative block cursor-pointer ml-10">
-          <input type="radio" name="exportMode" value="extract-pages" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
+          <label id="extract-pages-option" class="relative block cursor-pointer ml-10">
+            <input type="radio" name="exportMode" value="extract-pages" class="peer sr-only">
+            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <div>
-              <div class="text-base font-medium text-gray-900">Extract specific pages</div>
-              <div id="extractPagesDesc" class="text-sm text-gray-500">Export only the page numbers you enter</div>
+              <div>
+                <div class="text-base font-medium text-gray-900">Extract specific pages</div>
+                <div id="extract-pages-desc" class="text-sm text-gray-500">Export only the page numbers you enter</div>
+              </div>
             </div>
+            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+          </label>
+          <div id="extract-pages-fields" class="hidden ml-16 mr-4">
+            <input type="text" id="extract-pages-input" inputmode="numeric" autocomplete="off" spellcheck="false"
+              placeholder="e.g. 3 or 2, 5, 9" aria-label="Page numbers"
+              class="w-full h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
+            <p id="extract-pages-warning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
+              <i class="bi bi-exclamation-triangle mt-0.5"></i>
+              <span class="warning-text"></span>
+            </p>
           </div>
-          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
-        </label>
-        <div id="extractPagesFields" class="hidden ml-16 mr-4">
-          <input type="text" id="extractPagesInput" inputmode="numeric" autocomplete="off" spellcheck="false"
-            placeholder="e.g. 3 or 2, 5, 9" aria-label="Page numbers"
-            class="w-full h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
-          <p id="extractPagesWarning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
-            <i class="bi bi-exclamation-triangle mt-0.5"></i>
-            <span class="warning-text"></span>
-          </p>
-        </div>
 
-        <label id="extractRangeOption" class="relative block cursor-pointer ml-10">
-          <input type="radio" name="exportMode" value="extract-range" class="peer sr-only">
-          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
+          <label id="extract-range-option" class="relative block cursor-pointer ml-10">
+            <input type="radio" name="exportMode" value="extract-range" class="peer sr-only">
+            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
-            <div>
-              <div class="text-base font-medium text-gray-900">Extract page range</div>
-              <div id="extractRangeDesc" class="text-sm text-gray-500">Export every page from one number to another</div>
+              <div>
+                <div class="text-base font-medium text-gray-900">Extract page range</div>
+                <div id="extract-range-desc" class="text-sm text-gray-500">Export every page from one number to another</div>
+              </div>
             </div>
+            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+          </label>
+          <div id="extract-range-fields" class="hidden ml-16 mr-4">
+            <div class="flex items-center gap-3 text-sm text-gray-500">
+              <span>From</span>
+              <input type="text" id="extract-from-input" inputmode="numeric" autocomplete="off" placeholder="1" aria-label="First page"
+                class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
+              <span>to</span>
+              <input type="text" id="extract-to-input" inputmode="numeric" autocomplete="off" placeholder="5" aria-label="Last page"
+                class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
+            </div>
+            <p id="extract-range-warning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
+              <i class="bi bi-exclamation-triangle mt-0.5"></i>
+              <span class="warning-text"></span>
+            </p>
           </div>
-          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
-        </label>
-        <div id="extractRangeFields" class="hidden ml-16 mr-4">
-          <div class="flex items-center gap-3 text-sm text-gray-500">
-            <span>From</span>
-            <input type="text" id="extractFromInput" inputmode="numeric" autocomplete="off" placeholder="1" aria-label="First page"
-              class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
-            <span>to</span>
-            <input type="text" id="extractToInput" inputmode="numeric" autocomplete="off" placeholder="5" aria-label="Last page"
-              class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
-          </div>
-          <p id="extractRangeWarning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
-            <i class="bi bi-exclamation-triangle mt-0.5"></i>
-            <span class="warning-text"></span>
-          </p>
-        </div>
         </div>
       </div>
 
       <div class="flex items-center justify-between gap-4 mt-6 shrink-0">
-      <label id="separateOption" class="flex items-center gap-3 w-fit py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-        <input type="checkbox" id="separateCheckbox" class="peer sr-only">
-        <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
+        <label id="separate-option" class="flex items-center gap-3 w-fit py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
+          <input type="checkbox" id="separate-checkbox" class="peer sr-only">
+          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
                      peer-checked:bg-gray-900 peer-checked:border-gray-900
                      peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
                      peer-checked:[&>.i-check]:opacity-100">
-          <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
-        </span>
-        <span class="text-sm text-gray-700">
-          <span class="font-medium">Save separately</span>
-          <span class="block text-gray-500">One PDF per page or file</span>
-        </span>
-      </label>
+            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+          </span>
+          <span class="text-sm text-gray-700">
+            <span class="font-medium">Save separately</span>
+            <span class="block text-gray-500">One PDF per page or file</span>
+          </span>
+        </label>
 
-      <div class="flex justify-end gap-3">
-        <button id="exportCancelBtn" type="button"
-          class="h-12 px-7 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">Cancel</button>
-        <button id="exportConfirmBtn" type="button"
-          class="h-12 px-7 text-base font-semibold text-white bg-gray-900 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-full transition-colors">Export</button>
-      </div>
+        <div class="flex justify-end gap-3">
+          <button id="export-cancel-btn" type="button"
+            class="h-12 px-7 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">Cancel</button>
+          <button id="export-confirm-btn" type="button"
+            class="h-12 px-7 text-base font-semibold text-white bg-gray-900 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-full transition-colors">Export</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div id="previewModal" class="hidden">
+  <div id="preview-modal" class="hidden">
     <div class="preview-toolbar">
       <div class="min-w-0">
-        <h3 id="modalPageTitle" class="font-display text-base font-semibold truncate">Page 1</h3>
-        <p id="modalFileName" class="text-xs text-gray-400 truncate">filename.pdf</p>
+        <h3 id="modal-page-title" class="font-display text-base font-semibold truncate">Page 1</h3>
+        <p id="modal-file-name" class="text-xs text-gray-400 truncate">filename.pdf</p>
       </div>
       <div class="flex items-center gap-1">
-        <button id="zoomOutBtn" class="preview-btn" title="Zoom out (-)"><i class="bi bi-zoom-out"></i></button>
-        <button id="zoomLevel" class="preview-btn zoom-level" title="Fit to screen (0)">100%</button>
-        <button id="zoomInBtn" class="preview-btn" title="Zoom in (+)"><i class="bi bi-zoom-in"></i></button>
+        <button id="zoom-out-btn" class="preview-btn" title="Zoom out (-)"><i class="bi bi-zoom-out"></i></button>
+        <button id="zoom-level" class="preview-btn zoom-level" title="Fit to screen (0)">100%</button>
+        <button id="zoom-in-btn" class="preview-btn" title="Zoom in (+)"><i class="bi bi-zoom-in"></i></button>
       </div>
       <div class="flex items-center gap-2">
-        <button id="modalOpenBtn" class="preview-btn" title="Open original PDF in a new tab at this page">
+        <button id="modal-open-btn" class="preview-btn" title="Open original PDF in a new tab at this page">
           <i class="bi bi-box-arrow-up-right"></i> Open
         </button>
-        <button id="modalRotateBtn" class="preview-btn" title="Rotate page">
+        <button id="modal-rotate-btn" class="preview-btn" title="Rotate page">
           <i class="bi bi-arrow-clockwise"></i> Rotate
         </button>
-        <button id="modalDeleteBtn" class="preview-btn" title="Delete page">
+        <button id="modal-delete-btn" class="preview-btn" title="Delete page">
           <i class="bi bi-trash"></i> Delete
         </button>
-        <button id="closeModal" class="preview-btn preview-btn-icon" title="Close (Esc)" aria-label="Close">
+        <button id="close-modal" class="preview-btn preview-btn-icon" title="Close (Esc)" aria-label="Close">
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
     </div>
 
-    <div id="modalCanvas"></div>
+    <div id="modal-canvas"></div>
 
-    <button id="prevPage" class="preview-nav preview-nav-prev" title="Previous (←)">
+    <button id="prev-page" class="preview-nav preview-nav-prev" title="Previous (←)">
       <i class="bi bi-chevron-left"></i>
     </button>
-    <button id="nextPage" class="preview-nav preview-nav-next" title="Next (→)">
+    <button id="next-page" class="preview-nav preview-nav-next" title="Next (→)">
       <i class="bi bi-chevron-right"></i>
     </button>
   </div>

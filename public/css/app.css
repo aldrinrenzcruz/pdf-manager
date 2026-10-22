@@ -13,7 +13,7 @@ textarea {
   user-select: text;
 }
 
-#previewModal {
+#preview-modal {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -23,7 +23,7 @@ textarea {
   backdrop-filter: blur(6px);
 }
 
-#previewModal.hidden {
+#preview-modal.hidden {
   display: none;
 }
 
@@ -49,7 +49,7 @@ textarea {
   pointer-events: auto;
 }
 
-.preview-toolbar #modalFileName {
+.preview-toolbar #modal-file-name {
   color: rgba(255, 255, 255, 0.65);
 }
 
@@ -109,7 +109,7 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-#modalCanvas {
+#modal-canvas {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -203,7 +203,7 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  #modalCanvas {
+  #modal-canvas {
     padding: 64px 8px 8px;
   }
 

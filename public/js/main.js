@@ -65,59 +65,59 @@ const pageManager = new PDFPageManager();
 let busy = false;
 let loadQueue = Promise.resolve();
 
-const mainContent = document.getElementById('mainContent');
-const uploadZone = document.getElementById('uploadZone');
-const pagesGrid = document.getElementById('pagesGrid');
-const fileInput = document.getElementById('fileInput');
-const addPdfsBtn = document.getElementById('addPdfsBtn');
-const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-const deleteLastPagesBtn = document.getElementById('deleteLastPagesBtn');
-const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-const selectAllContainer = document.getElementById('selectAllContainer');
-const exportBtn = document.getElementById('exportBtn');
-const outputFilename = document.getElementById('outputFilename');
-const totalPagesSpan = document.getElementById('totalPages');
-const selectedPagesSpan = document.getElementById('selectedPages');
+const mainContent = document.getElementById('main-content');
+const uploadZone = document.getElementById('upload-zone');
+const pagesGrid = document.getElementById('pages-grid');
+const fileInput = document.getElementById('file-input');
+const addPdfsBtn = document.getElementById('add-pdfs-btn');
+const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+const deleteLastPagesBtn = document.getElementById('delete-last-pages-btn');
+const selectAllCheckbox = document.getElementById('select-all-checkbox');
+const selectAllContainer = document.getElementById('select-all-container');
+const exportBtn = document.getElementById('export-btn');
+const outputFilename = document.getElementById('output-filename');
+const totalPagesSpan = document.getElementById('total-pages');
+const selectedPagesSpan = document.getElementById('selected-pages');
 
-const viewToggle = document.getElementById('viewToggle');
+const viewToggle = document.getElementById('view-toggle');
 let fileView = false;
 
-const exportModal = document.getElementById('exportModal');
-const exportCount = document.getElementById('exportCount');
-const exportCloseBtn = document.getElementById('exportCloseBtn');
-const exportCancelBtn = document.getElementById('exportCancelBtn');
-const exportConfirmBtn = document.getElementById('exportConfirmBtn');
-const pairMergeOption = document.getElementById('pairMergeOption');
-const pairMergeCheckbox = document.getElementById('pairMergeCheckbox');
-const extractHeader = document.getElementById('extractHeader');
-const extractSubOptions = document.getElementById('extractSubOptions');
-const separateOption = document.getElementById('separateOption');
-const separateCheckbox = document.getElementById('separateCheckbox');
+const exportModal = document.getElementById('export-modal');
+const exportCount = document.getElementById('export-count');
+const exportCloseBtn = document.getElementById('export-close-btn');
+const exportCancelBtn = document.getElementById('export-cancel-btn');
+const exportConfirmBtn = document.getElementById('export-confirm-btn');
+const pairMergeOption = document.getElementById('pair-merge-option');
+const pairMergeCheckbox = document.getElementById('pair-merge-checkbox');
+const extractHeader = document.getElementById('extract-header');
+const extractSubOptions = document.getElementById('extract-sub-options');
+const separateOption = document.getElementById('separate-option');
+const separateCheckbox = document.getElementById('separate-checkbox');
 let separateAuto = false;
 
-const extractPagesInput = document.getElementById('extractPagesInput');
-const extractFromInput = document.getElementById('extractFromInput');
-const extractToInput = document.getElementById('extractToInput');
-const extractPagesFields = document.getElementById('extractPagesFields');
-const extractRangeFields = document.getElementById('extractRangeFields');
-const extractPagesWarning = document.getElementById('extractPagesWarning');
-const extractRangeWarning = document.getElementById('extractRangeWarning');
+const extractPagesInput = document.getElementById('extract-pages-input');
+const extractFromInput = document.getElementById('extract-from-input');
+const extractToInput = document.getElementById('extract-to-input');
+const extractPagesFields = document.getElementById('extract-pages-fields');
+const extractRangeFields = document.getElementById('extract-range-fields');
+const extractPagesWarning = document.getElementById('extract-pages-warning');
+const extractRangeWarning = document.getElementById('extract-range-warning');
 let extractError = null;
 
-const previewModal = document.getElementById('previewModal');
-const closeModal = document.getElementById('closeModal');
+const previewModal = document.getElementById('preview-modal');
+const closeModal = document.getElementById('close-modal');
 const previewToolbar = previewModal.querySelector('.preview-toolbar');
-const prevPage = document.getElementById('prevPage');
-const nextPage = document.getElementById('nextPage');
-const modalPageTitle = document.getElementById('modalPageTitle');
-const modalFileName = document.getElementById('modalFileName');
-const modalCanvas = document.getElementById('modalCanvas');
-const modalRotateBtn = document.getElementById('modalRotateBtn');
-const modalDeleteBtn = document.getElementById('modalDeleteBtn');
-const modalOpenBtn = document.getElementById('modalOpenBtn');
-const zoomInBtn = document.getElementById('zoomInBtn');
-const zoomOutBtn = document.getElementById('zoomOutBtn');
-const zoomLevel = document.getElementById('zoomLevel');
+const prevPage = document.getElementById('prev-page');
+const nextPage = document.getElementById('next-page');
+const modalPageTitle = document.getElementById('modal-page-title');
+const modalFileName = document.getElementById('modal-file-name');
+const modalCanvas = document.getElementById('modal-canvas');
+const modalRotateBtn = document.getElementById('modal-rotate-btn');
+const modalDeleteBtn = document.getElementById('modal-delete-btn');
+const modalOpenBtn = document.getElementById('modal-open-btn');
+const zoomInBtn = document.getElementById('zoom-in-btn');
+const zoomOutBtn = document.getElementById('zoom-out-btn');
+const zoomLevel = document.getElementById('zoom-level');
 
 let currentPreviewPageId = null;
 let previewRenderToken = 0;
@@ -129,7 +129,7 @@ const MAX_CANVAS_PIXELS = 16000000;
 let previewZoom = 1;
 
 addPdfsBtn.addEventListener('click', openFilePicker);
-document.getElementById('uploadBox').addEventListener('click', openFilePicker);
+document.getElementById('upload-box').addEventListener('click', openFilePicker);
 fileInput.addEventListener('change', handleFileSelect);
 deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
 deleteLastPagesBtn.addEventListener('click', handleDeleteLastPages);
@@ -259,12 +259,6 @@ previewModal.addEventListener('wheel', (e) => {
   if (e.deltaY < 0) setPreviewZoom(previewZoom * ZOOM_STEP);
   else setPreviewZoom(previewZoom / ZOOM_STEP);
 }, { passive: false });
-
-modalCanvas.addEventListener('dblclick', (e) => {
-  if (e.target.tagName === 'CANVAS' || e.target.classList.contains('textLayer')) {
-    setPreviewZoom(previewZoom > 1.01 ? 1 : 2.5);
-  }
-});
 
 uploadZone.addEventListener('dragover', (e) => {
   e.preventDefault();
@@ -893,20 +887,20 @@ function openExportModal() {
     exportCount.textContent = count === 1 ? '1 page' : `${count} pages`;
   }
 
-  document.getElementById('mergeDesc').textContent = fileView
+  document.getElementById('merge-desc').textContent = fileView
     ? 'Combine all pages of the selected files into one PDF'
     : 'Combine selected pages into one PDF';
-  document.getElementById('extractOnlyDesc').textContent = fileView
+  document.getElementById('extract-only-desc').textContent = fileView
     ? 'Export each selected file as its own PDF'
     : 'Export each selected page as its own PDF';
 
-  document.getElementById('extractFirstOption').classList.toggle('hidden', !fileView);
-  document.getElementById('extractLastOption').classList.toggle('hidden', !fileView);
+  document.getElementById('extract-first-option').classList.toggle('hidden', !fileView);
+  document.getElementById('extract-last-option').classList.toggle('hidden', !fileView);
 
-  document.getElementById('extractPagesDesc').textContent = fileView
+  document.getElementById('extract-pages-desc').textContent = fileView
     ? 'Export the same page numbers from each selected file'
     : 'Export only the page numbers you enter';
-  document.getElementById('extractRangeDesc').textContent = fileView
+  document.getElementById('extract-range-desc').textContent = fileView
     ? 'Export the same page range from each selected file'
     : 'Export every page from one number to another';
 
