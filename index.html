@@ -134,19 +134,19 @@
   <!-- Export Modal -->
   <div id="exportModal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4"
     role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
-    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl p-8">
-      <div class="flex items-center justify-between mb-2">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl h-[42rem] max-h-full flex flex-col p-8">
+      <div class="flex items-center justify-between mb-2 shrink-0">
         <h3 id="exportModalTitle" class="font-display text-xl font-semibold text-gray-900">Export</h3>
         <button id="exportCloseBtn" type="button" aria-label="Close" title="Close (Esc)"
           class="text-gray-500 hover:text-gray-900 hover:bg-gray-100 w-12 h-12 -mr-3 rounded-full flex items-center justify-center text-xl transition-colors">
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
-      <p class="text-base text-gray-500 mb-6">
+      <p class="text-base text-gray-500 mb-6 shrink-0">
         <span id="exportCount" class="font-medium text-gray-700">0 pages</span> selected. Choose how to export them.
       </p>
 
-      <div class="space-y-2">
+      <div class="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
         <label class="relative block cursor-pointer">
           <input type="radio" name="exportMode" value="merge" class="peer sr-only" checked>
           <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
@@ -218,7 +218,7 @@
         </label>
       </div>
 
-      <div class="flex justify-end gap-3 mt-8">
+      <div class="flex justify-end gap-3 mt-8 shrink-0">
         <button id="exportCancelBtn" type="button"
           class="h-12 px-7 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">Cancel</button>
         <button id="exportConfirmBtn" type="button"
