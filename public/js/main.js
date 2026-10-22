@@ -219,17 +219,22 @@ zoomInBtn.addEventListener('click', () => setPreviewZoom(previewZoom * ZOOM_STEP
 zoomOutBtn.addEventListener('click', () => setPreviewZoom(previewZoom / ZOOM_STEP));
 zoomLevel.addEventListener('click', () => setPreviewZoom(1));
 
-let pendingZoom = null;
-let wheelTimer;
+// Ctrl/Cmd + scroll behaves like clicking the zoom in / zoom out buttons:
+// one fixed step per scroll tick. A short throttle keeps trackpad pinch
+// (which fires many wheel events) from jumping several steps at once.
+let lastWheelZoom = 0;
+const WHEEL_ZOOM_THROTTLE_MS = 120;
 previewModal.addEventListener('wheel', (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
-  pendingZoom = (pendingZoom ?? previewZoom) * Math.exp(-e.deltaY * 0.01);
-  clearTimeout(wheelTimer);
-  wheelTimer = setTimeout(() => {
-    setPreviewZoom(pendingZoom);
-    pendingZoom = null;
-  }, 80);
+  if (!e.deltaY) return;
+
+  const now = performance.now();
+  if (now - lastWheelZoom < WHEEL_ZOOM_THROTTLE_MS) return;
+  lastWheelZoom = now;
+
+  if (e.deltaY < 0) setPreviewZoom(previewZoom * ZOOM_STEP);
+  else setPreviewZoom(previewZoom / ZOOM_STEP);
 }, { passive: false });
 
 modalCanvas.addEventListener('dblclick', (e) => {
