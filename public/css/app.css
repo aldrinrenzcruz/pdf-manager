@@ -268,12 +268,17 @@
 }
 
 .file-name {
-  overflow-x: hidden;
+  overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
   padding: 0 4px;
-  cursor: grab;
-  touch-action: pan-y;
+  direction: rtl;
+  text-align: center;
+}
+
+.file-name > span {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
 }
 
 .file-name.dragging {

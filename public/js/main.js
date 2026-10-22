@@ -751,41 +751,16 @@ function syncSelectionUI() {
   });
 }
 
-// One-line, truncated file name; drag it to the right to reveal the rest
+// One-line file name. If it's too long, the very end is shown (the start is
+// clipped); the full name is available as a tooltip. See .file-name in app.css.
 function createFileNameEl(card, name) {
   const el = document.createElement('div');
   el.className = 'file-name';
-  el.textContent = name;
   el.title = name;
 
-  let startX = 0;
-  let startScroll = 0;
-  let active = false;
-
-  el.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    active = true;
-    startX = e.clientX;
-    startScroll = el.scrollLeft;
-    el.setPointerCapture(e.pointerId);
-    el.classList.add('dragging');
-    card.draggable = false; // don't start a card drag
-  });
-
-  el.addEventListener('pointermove', (e) => {
-    if (!active) return;
-    el.scrollLeft = startScroll + (e.clientX - startX);
-  });
-
-  const end = () => {
-    if (!active) return;
-    active = false;
-    el.classList.remove('dragging');
-    card.draggable = true;
-  };
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
+  const text = document.createElement('span');
+  text.textContent = name;
+  el.appendChild(text);
 
   return el;
 }
