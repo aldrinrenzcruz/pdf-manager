@@ -227,6 +227,57 @@
           </div>
           <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
         </label>
+
+        <!-- Extract specific pages -->
+        <label id="extractPagesOption" class="relative block cursor-pointer ml-10">
+          <input type="radio" name="exportMode" value="extract-pages" class="peer sr-only">
+          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
+                    hover:bg-gray-100 peer-checked:bg-gray-100
+                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+            <div>
+              <div class="text-base font-medium text-gray-900">Extract specific pages</div>
+              <div id="extractPagesDesc" class="text-sm text-gray-500">Export only the page numbers you enter</div>
+            </div>
+          </div>
+          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+        </label>
+        <div id="extractPagesFields" class="hidden ml-16 mr-4">
+          <input type="text" id="extractPagesInput" inputmode="numeric" autocomplete="off" spellcheck="false"
+            placeholder="e.g. 3 or 2, 5, 9" aria-label="Page numbers"
+            class="w-full h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
+          <p id="extractPagesWarning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
+            <i class="bi bi-exclamation-triangle mt-0.5"></i>
+            <span class="warning-text"></span>
+          </p>
+        </div>
+
+        <!-- Extract page range -->
+        <label id="extractRangeOption" class="relative block cursor-pointer ml-10">
+          <input type="radio" name="exportMode" value="extract-range" class="peer sr-only">
+          <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
+                    hover:bg-gray-100 peer-checked:bg-gray-100
+                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+            <div>
+              <div class="text-base font-medium text-gray-900">Extract page range</div>
+              <div id="extractRangeDesc" class="text-sm text-gray-500">Export every page from one number to another</div>
+            </div>
+          </div>
+          <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+        </label>
+        <div id="extractRangeFields" class="hidden ml-16 mr-4">
+          <div class="flex items-center gap-3 text-sm text-gray-500">
+            <span>From</span>
+            <input type="text" id="extractFromInput" inputmode="numeric" autocomplete="off" placeholder="1" aria-label="First page"
+              class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
+            <span>to</span>
+            <input type="text" id="extractToInput" inputmode="numeric" autocomplete="off" placeholder="5" aria-label="Last page"
+              class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
+          </div>
+          <p id="extractRangeWarning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
+            <i class="bi bi-exclamation-triangle mt-0.5"></i>
+            <span class="warning-text"></span>
+          </p>
+        </div>
         </div>
       </div>
 

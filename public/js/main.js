@@ -95,6 +95,16 @@ const separateOption = document.getElementById('separateOption');
 const separateCheckbox = document.getElementById('separateCheckbox');
 let separateAuto = false; // true when the tick was set automatically by "Extract only"
 
+// "Extract specific pages" / "Extract page range" inputs
+const extractPagesInput = document.getElementById('extractPagesInput');
+const extractFromInput = document.getElementById('extractFromInput');
+const extractToInput = document.getElementById('extractToInput');
+const extractPagesFields = document.getElementById('extractPagesFields');
+const extractRangeFields = document.getElementById('extractRangeFields');
+const extractPagesWarning = document.getElementById('extractPagesWarning');
+const extractRangeWarning = document.getElementById('extractRangeWarning');
+let extractError = null; // non-null blocks the Export button
+
 const previewModal = document.getElementById('previewModal');
 const closeModal = document.getElementById('closeModal');
 const previewToolbar = previewModal.querySelector('.preview-toolbar');
@@ -146,6 +156,31 @@ exportConfirmBtn.addEventListener('click', handleExportConfirm);
 exportModal.addEventListener('change', (e) => {
   if (e.target.name === 'exportMode') updateExportSubOptions();
 });
+
+// Strip disallowed characters from an input as the user types or pastes, keeping the caret in place.
+// `disallowed` is a global regex matching every character that must be removed.
+function filterInput(el, disallowed) {
+  const cleaned = el.value.replace(disallowed, '');
+  if (cleaned === el.value) return;
+
+  const caret = el.selectionStart ?? el.value.length;
+  const caretAfter = el.value.slice(0, caret).replace(disallowed, '').length;
+  el.value = cleaned;
+  el.setSelectionRange(caretAfter, caretAfter);
+}
+
+// Specific pages: digits, commas and spaces only. Page range: digits only.
+// Filter first, then re-validate with the cleaned value.
+extractPagesInput.addEventListener('input', () => {
+  filterInput(extractPagesInput, /[^\d,\s]/g);
+  updateExtractValidity();
+});
+[extractFromInput, extractToInput].forEach(el =>
+  el.addEventListener('input', () => {
+    filterInput(el, /\D/g);
+    updateExtractValidity();
+  })
+);
 
 // Clicking the Extract header selects its default sub item (Extract only)
 function selectExtract() {
@@ -862,7 +897,7 @@ function updateStats() {
   selectAllCheckbox.indeterminate = selected > 0 && selected < total;
 
   exportBtn.disabled = busy || selected === 0;
-  exportConfirmBtn.disabled = busy || selected === 0;
+  exportConfirmBtn.disabled = busy || selected === 0 || !!extractError;
   deleteSelectedBtn.disabled = busy || selected === 0;
   deleteLastPagesBtn.disabled = busy || selected === 0;
 }
@@ -912,6 +947,14 @@ function openExportModal() {
 
   document.getElementById('extractFirstOption').classList.toggle('hidden', !fileView);
   document.getElementById('extractLastOption').classList.toggle('hidden', !fileView);
+
+  // Specific pages / page range: available in both views, worded for the current one
+  document.getElementById('extractPagesDesc').textContent = fileView
+    ? 'Export the same page numbers from each selected file'
+    : 'Export only the page numbers you enter';
+  document.getElementById('extractRangeDesc').textContent = fileView
+    ? 'Export the same page range from each selected file'
+    : 'Export every page from one number to another';
 
   // Merge in pairs (checkbox under Merge): Files view only, and only when the selected files pair up evenly
   if (fileView) {
@@ -974,6 +1017,11 @@ function updateExportSubOptions() {
   separateOption.classList.toggle('cursor-not-allowed', locked);
   separateOption.classList.toggle('cursor-pointer', !locked);
   separateOption.classList.toggle('hover:bg-gray-100', !locked);
+
+  // Show the inputs for the chosen extract option and re-check them
+  extractPagesFields.classList.toggle('hidden', mode !== 'extract-pages');
+  extractRangeFields.classList.toggle('hidden', mode !== 'extract-range');
+  updateExtractValidity();
 }
 
 function closeExportModal() {
@@ -982,6 +1030,10 @@ function closeExportModal() {
 
 function handleExportConfirm() {
   const mode = document.querySelector('input[name="exportMode"]:checked').value;
+
+  // Never export with invalid page numbers (the button is disabled too, this is a safety net)
+  if ((mode === 'extract-pages' || mode === 'extract-range') && getExtractRequest().error) return;
+
   closeExportModal();
 
   if (mode === 'extract-only') {
@@ -992,6 +1044,8 @@ function handleExportConfirm() {
     handleExtractEdgePages('first');
   } else if (mode === 'extract-last') {
     handleExtractEdgePages('last');
+  } else if (mode === 'extract-pages' || mode === 'extract-range') {
+    handleExtractSpecific();
   } else if (fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
     // Merge with "Merge in pairs" ticked
     handleMergeInPairs();
@@ -1276,6 +1330,170 @@ async function handleExtractEdgePages(which) {
   } catch (error) {
     console.error(`Extract ${which} pages failed:`, error);
     alert(`Error extracting ${which} pages: ${error.message}\n\nCheck console for details.`);
+  } finally {
+    busy = false;
+    updateStats();
+  }
+}
+
+// ---------- Extract specific pages / page range ----------
+
+// Reads the inputs of "Extract specific pages" / "Extract page range" and checks
+// them against the loaded PDFs.
+//
+// Page numbers mean:
+//   Pages view: the number shown on the card, counting only selected pages.
+//   Files view: page N of each selected file (counting that file's selected pages).
+//
+// Returns { error, silent, groups, label }:
+//   error  - message (or null when the input is valid / the mode doesn't need input)
+//   silent - true when the input is just incomplete: block Export but show no warning yet
+//   groups - arrays of pages to export (one per page in Pages view, one per file in Files view)
+//   label  - filename suffix, e.g. "_pages-2-to-5"
+function getExtractRequest() {
+  const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
+  if (mode !== 'extract-pages' && mode !== 'extract-range') return { error: null };
+
+  let numbers = null;   // sorted unique page numbers (specific pages mode)
+  let rangeFrom = 0;    // range mode
+  let rangeTo = 0;
+  let label;
+
+  if (mode === 'extract-pages') {
+    const raw = extractPagesInput.value.trim();
+    if (!raw) return { error: 'Enter a page number.', silent: true };
+
+    const tokens = raw.split(/[\s,]+/).filter(Boolean);
+    if (!tokens.every(t => /^\d+$/.test(t))) {
+      return { error: 'Use whole numbers separated by commas, e.g. 2, 5, 9.' };
+    }
+
+    numbers = [...new Set(tokens.map(Number))].sort((a, b) => a - b);
+    if (numbers[0] < 1) return { error: 'Page numbers start at 1.' };
+
+    label = numbers.length === 1 ? `_page-${numbers[0]}` : `_pages-${numbers.join('-')}`;
+  } else {
+    const fromRaw = extractFromInput.value.trim();
+    const toRaw = extractToInput.value.trim();
+    if (!fromRaw || !toRaw) return { error: 'Enter both a first and a last page.', silent: true };
+    if (!/^\d+$/.test(fromRaw) || !/^\d+$/.test(toRaw)) {
+      return { error: 'Page numbers must be whole numbers.' };
+    }
+
+    rangeFrom = Number(fromRaw);
+    rangeTo = Number(toRaw);
+    if (rangeFrom < 1) return { error: 'Page numbers start at 1.' };
+    if (rangeFrom > rangeTo) {
+      return { error: `The first page (${rangeFrom}) can't be after the last page (${rangeTo}).` };
+    }
+
+    label = `_pages-${rangeFrom}-to-${rangeTo}`;
+  }
+
+  const max = numbers ? numbers[numbers.length - 1] : rangeTo;
+  const wanted = numbers ? new Set(numbers) : null;
+  const has = n => (wanted ? wanted.has(n) : n >= rangeFrom && n <= rangeTo);
+
+  const all = pageManager.getAllPages();
+  const selected = pageManager.getSelectedPages();
+
+  if (fileView) {
+    const groups = [];
+    const tooShort = [];
+
+    for (const fileIndex of selectedFileOrder()) {
+      const filePages = selected.filter(p => p.fileIndex === fileIndex);
+      if (filePages.length < max) {
+        const n = filePages.length;
+        tooShort.push(`"${filePages[0].fileName}" has only ${n} selected page${n === 1 ? '' : 's'}`);
+      }
+      groups.push(filePages.filter((p, i) => has(i + 1)));
+    }
+
+    if (tooShort.length) {
+      const more = tooShort.length > 1 ? ` (and ${tooShort.length - 1} more)` : '';
+      return { error: `Page ${max} doesn't exist in every selected file: ${tooShort[0]}${more}.` };
+    }
+    return { error: null, groups, label };
+  }
+
+  if (max > all.length) {
+    const n = all.length;
+    return { error: `Page ${max} doesn't exist: only ${n} page${n === 1 ? ' is' : 's are'} loaded.` };
+  }
+
+  const pages = all.filter((p, i) => p.selected && has(i + 1));
+  if (pages.length === 0) {
+    return { error: 'None of the selected pages are in that selection. Select those pages first.' };
+  }
+  return { error: null, groups: pages.map(p => [p]), label };
+}
+
+// Show/hide the warning and enable/disable the Export button for the current input
+function updateExtractValidity() {
+  const req = getExtractRequest();
+  extractError = req.error || null;
+
+  // The warning sits directly under whichever input is active
+  const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
+  const target = mode === 'extract-range' ? extractRangeWarning : extractPagesWarning;
+  const show = !!req.error && !req.silent;
+
+  for (const el of [extractPagesWarning, extractRangeWarning]) {
+    const active = show && el === target;
+    el.classList.toggle('hidden', !active);
+    el.querySelector('.warning-text').textContent = active ? req.error : '';
+  }
+
+  // If the warning landed outside the visible part of the scrolling list, bring it into view
+  if (show) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+  exportConfirmBtn.disabled = busy || pageManager.getSelectedPages().length === 0 || !!extractError;
+}
+
+// Extract specific pages / page range. One combined PDF by default, or one PDF per
+// page (Pages view) / per file (Files view) when "Save separately" is ticked.
+async function handleExtractSpecific() {
+  const req = getExtractRequest();
+  if (req.error || !req.groups) return;
+
+  const groups = separateCheckbox.checked ? req.groups : [req.groups.flat()];
+
+  busy = true;
+  updateStats();
+
+  try {
+    const loadedPdfs = await loadSourcePdfs(groups.flat());
+    const results = [];
+
+    for (const [i, group] of groups.entries()) {
+      try {
+        const outPdf = await PDFLib.PDFDocument.create();
+        for (const page of group) await copyPageInto(outPdf, loadedPdfs, page);
+        const bytes = await outPdf.save();
+
+        const name = groups.length === 1
+          ? `${exportBaseName()}${req.label}.pdf`
+          : `${exportBaseName()}-${padNum(i + 1, groups.length)}${req.label}.pdf`;
+        results.push({ name, bytes });
+      } catch (groupError) {
+        throw new Error(`Failed on output ${i + 1}: ${groupError.message}`);
+      }
+    }
+
+    if (results.length === 1) {
+      downloadFile(results[0].bytes, results[0].name, 'application/pdf');
+    } else {
+      const folderName = exportFolderName();
+      const zip = new JSZip();
+      const folder = zip.folder(folderName);
+      results.forEach(r => folder.file(r.name, r.bytes));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      downloadFile(zipBlob, `${folderName}.zip`, 'application/zip');
+    }
+  } catch (error) {
+    console.error('Extract specific pages failed:', error);
+    alert(`Error extracting pages: ${error.message}\n\nCheck console for details.`);
   } finally {
     busy = false;
     updateStats();

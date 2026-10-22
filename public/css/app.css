@@ -7,6 +7,13 @@
   -webkit-user-drag: none;
 }
 
+/* Text inputs must stay typeable (Safari honours the global rule above) */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 #previewModal {
   position: fixed;
   inset: 0;
