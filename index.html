@@ -41,15 +41,13 @@
           class="w-64 h-8 px-3 text-sm font-medium text-center text-gray-900 placeholder-gray-400 bg-transparent border-0 rounded-lg hover:bg-gray-100 focus:bg-gray-100 focus:outline-none focus:ring-0">
 
         <div class="flex items-center justify-end gap-2">
-          <button id="add-pdfs-btn" type="button" title="Import PDFs"
-            class="text-gray-700 hover:bg-gray-100 h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
+          <button id="add-pdfs-btn" type="button" title="Import PDFs" class="toolbar-btn">
             <i class="bi bi-box-arrow-in-down"></i>
             Import
           </button>
           <input type="file" id="file-input" accept=".pdf" multiple class="hidden">
 
-          <button id="export-btn" disabled title="Export selected pages"
-            class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
+          <button id="export-btn" disabled title="Export selected pages" class="toolbar-btn">
             <i class="bi bi-box-arrow-up"></i>
             Export
           </button>
@@ -60,13 +58,11 @@
     <div id="toolbar" role="toolbar" aria-label="Page tools"
       class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 bg-white border-b border-gray-200 px-4 py-1">
       <div class="flex items-center justify-start gap-2">
-        <button id="delete-selected-btn" disabled title="Delete selected pages"
-          class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
+        <button id="delete-selected-btn" disabled title="Delete selected pages" class="toolbar-btn">
           <i class="bi bi-trash"></i>
           Delete
         </button>
-        <button id="delete-last-pages-btn" disabled title="Delete the last page of each selected file"
-          class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
+        <button id="delete-last-pages-btn" disabled title="Delete the last page of each selected file" class="toolbar-btn">
           <i class="bi bi-file-earmark-minus"></i>
           Delete last pages
         </button>
@@ -89,14 +85,10 @@
       <div class="flex items-center justify-end gap-2">
         <label title="Select all pages"
           class="flex items-center gap-2.5 h-8 pl-2 pr-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors has-[:disabled]:opacity-40 has-[:disabled]:cursor-not-allowed has-[:disabled]:hover:bg-transparent">
-          <input type="checkbox" id="select-all-checkbox" disabled class="peer sr-only">
-          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
-                       peer-checked:bg-gray-900 peer-checked:border-gray-900
-                       peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
-                       peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
-                       peer-checked:[&>.i-check]:opacity-100 peer-indeterminate:[&>.i-dash]:opacity-100">
-            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
-            <i class="i-dash bi bi-dash-lg absolute opacity-0 transition-opacity"></i>
+          <input type="checkbox" id="select-all-checkbox" disabled class="sr-only">
+          <span class="circle-check">
+            <i class="i-check bi bi-check-lg"></i>
+            <i class="i-dash bi bi-dash-lg"></i>
           </span>
           <span class="text-sm font-medium text-gray-700 whitespace-nowrap">Select all</span>
           <span class="text-sm text-gray-400 tabular-nums whitespace-nowrap"><span id="selected-pages">0</span> of <span id="total-pages">0</span> selected</span>
@@ -138,27 +130,22 @@
       </p>
 
       <div class="space-y-2 flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
-        <label class="relative block cursor-pointer">
-          <input type="radio" name="exportMode" value="merge" class="peer sr-only" checked>
-          <div class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+        <label class="radio-row">
+          <input type="radio" name="exportMode" value="merge" class="sr-only" checked>
+          <div class="radio-row-body">
             <i class="bi bi-files text-2xl"></i>
             <div>
-              <div class="text-base font-semibold text-gray-900">Merge</div>
-              <div id="merge-desc" class="text-sm text-gray-500">Combine selected pages into one PDF</div>
+              <div class="radio-row-title">Merge</div>
+              <div id="merge-desc" class="radio-row-desc">Combine selected pages into one PDF</div>
             </div>
           </div>
-          <i class="bi bi-check-lg absolute right-7 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+          <i class="bi bi-check-lg radio-row-check"></i>
         </label>
 
         <label id="pair-merge-option" class="hidden flex items-center gap-3 w-fit ml-16 mb-1 py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-          <input type="checkbox" id="pair-merge-checkbox" class="peer sr-only">
-          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
-                       peer-checked:bg-gray-900 peer-checked:border-gray-900
-                       peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
-                       peer-checked:[&>.i-check]:opacity-100">
-            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+          <input type="checkbox" id="pair-merge-checkbox" class="sr-only">
+          <span class="circle-check">
+            <i class="i-check bi bi-check-lg"></i>
           </span>
           <span class="text-sm text-gray-700">
             <span class="font-medium">Merge in pairs</span>
@@ -166,67 +153,58 @@
           </span>
         </label>
 
-        <div id="extract-header" role="button" tabindex="0"
-          class="flex items-center gap-4 pl-7 pr-16 py-4 rounded-full text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors">
+        <div id="extract-header" role="button" tabindex="0" class="radio-row-body cursor-pointer">
           <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
           <div>
-            <div class="text-base font-semibold text-gray-900">Extract</div>
-            <div class="text-sm text-gray-500">Export pages or files without merging them</div>
+            <div class="radio-row-title">Extract</div>
+            <div class="radio-row-desc">Export pages or files without merging them</div>
           </div>
         </div>
 
         <div id="extract-sub-options" class="hidden space-y-2">
 
-          <label class="relative block cursor-pointer ml-10">
-            <input type="radio" name="exportMode" value="extract-only" class="peer sr-only">
-            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+          <label class="radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-only" class="sr-only">
+            <div class="radio-row-body">
               <div>
-                <div class="text-base font-medium text-gray-900">Extract only</div>
-                <div id="extract-only-desc" class="text-sm text-gray-500">Export each selected page as its own PDF</div>
+                <div class="radio-row-title">Extract only</div>
+                <div id="extract-only-desc" class="radio-row-desc">Export each selected page as its own PDF</div>
               </div>
             </div>
-            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+            <i class="bi bi-check-lg radio-row-check"></i>
           </label>
 
-          <label id="extract-first-option" class="hidden relative block cursor-pointer ml-10">
-            <input type="radio" name="exportMode" value="extract-first" class="peer sr-only">
-            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+          <label id="extract-first-option" class="hidden radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-first" class="sr-only">
+            <div class="radio-row-body">
               <div>
-                <div class="text-base font-medium text-gray-900">Extract first pages</div>
-                <div class="text-sm text-gray-500">Export the first page of each selected file</div>
+                <div class="radio-row-title">Extract first pages</div>
+                <div class="radio-row-desc">Export the first page of each selected file</div>
               </div>
             </div>
-            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+            <i class="bi bi-check-lg radio-row-check"></i>
           </label>
 
-          <label id="extract-last-option" class="hidden relative block cursor-pointer ml-10">
-            <input type="radio" name="exportMode" value="extract-last" class="peer sr-only">
-            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+          <label id="extract-last-option" class="hidden radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-last" class="sr-only">
+            <div class="radio-row-body">
               <div>
-                <div class="text-base font-medium text-gray-900">Extract last pages</div>
-                <div class="text-sm text-gray-500">Export the last page of each selected file</div>
+                <div class="radio-row-title">Extract last pages</div>
+                <div class="radio-row-desc">Export the last page of each selected file</div>
               </div>
             </div>
-            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+            <i class="bi bi-check-lg radio-row-check"></i>
           </label>
 
-          <label class="relative block cursor-pointer ml-10">
-            <input type="radio" name="exportMode" value="extract-pages" class="peer sr-only">
-            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+          <label class="radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-pages" class="sr-only">
+            <div class="radio-row-body">
               <div>
-                <div class="text-base font-medium text-gray-900">Extract specific pages</div>
-                <div id="extract-pages-desc" class="text-sm text-gray-500">Export only the page numbers you enter</div>
+                <div class="radio-row-title">Extract specific pages</div>
+                <div id="extract-pages-desc" class="radio-row-desc">Export only the page numbers you enter</div>
               </div>
             </div>
-            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+            <i class="bi bi-check-lg radio-row-check"></i>
           </label>
           <div id="extract-pages-fields" class="hidden ml-16 mr-4">
             <input type="text" id="extract-pages-input" inputmode="numeric" autocomplete="off" spellcheck="false"
@@ -238,17 +216,15 @@
             </p>
           </div>
 
-          <label class="relative block cursor-pointer ml-10">
-            <input type="radio" name="exportMode" value="extract-range" class="peer sr-only">
-            <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
-                    hover:bg-gray-100 peer-checked:bg-gray-100
-                    peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 transition-colors">
+          <label class="radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-range" class="sr-only">
+            <div class="radio-row-body">
               <div>
-                <div class="text-base font-medium text-gray-900">Extract page range</div>
-                <div id="extract-range-desc" class="text-sm text-gray-500">Export every page from one number to another</div>
+                <div class="radio-row-title">Extract page range</div>
+                <div id="extract-range-desc" class="radio-row-desc">Export every page from one number to another</div>
               </div>
             </div>
-            <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+            <i class="bi bi-check-lg radio-row-check"></i>
           </label>
           <div id="extract-range-fields" class="hidden ml-16 mr-4">
             <div class="flex items-center gap-3 text-sm text-gray-500">
@@ -269,12 +245,9 @@
 
       <div class="flex items-center justify-between gap-4 mt-6 shrink-0">
         <label id="separate-option" class="flex items-center gap-3 w-fit py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-          <input type="checkbox" id="separate-checkbox" class="peer sr-only">
-          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
-                     peer-checked:bg-gray-900 peer-checked:border-gray-900
-                     peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
-                     peer-checked:[&>.i-check]:opacity-100">
-            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+          <input type="checkbox" id="separate-checkbox" class="sr-only">
+          <span class="circle-check">
+            <i class="i-check bi bi-check-lg"></i>
           </span>
           <span class="text-sm text-gray-700">
             <span class="font-medium">Save separately</span>

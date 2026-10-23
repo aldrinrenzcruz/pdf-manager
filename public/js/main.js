@@ -61,6 +61,31 @@ const MAX_ZOOM = 6;
 const ZOOM_STEP = 1.25;
 const MAX_CANVAS_PIXELS = 16000000;
 
+/* ------------------------------------------------------------------ */
+/* Small shared helpers                                                */
+/* ------------------------------------------------------------------ */
+
+const getExportMode = () => document.querySelector('input[name="exportMode"]:checked')?.value;
+const getCard = id => pagesGrid.querySelector(`[data-page-id="${id}"]`);
+const currentPreviewPage = () => PDFManager.getPage(AppData.temp.currentPreviewPageId);
+const plural = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+
+function refresh() {
+  applyView();
+  updateStats();
+}
+
+function setOptionDisabled(el, disabled, { hover = false } = {}) {
+  el.classList.toggle("opacity-40", disabled);
+  el.classList.toggle("cursor-not-allowed", disabled);
+  el.classList.toggle("cursor-pointer", !disabled);
+  if (hover) el.classList.toggle("hover:bg-gray-100", !disabled);
+}
+
+/* ------------------------------------------------------------------ */
+/* Event wiring                                                        */
+/* ------------------------------------------------------------------ */
+
 addPdfsBtn.addEventListener("click", openFilePicker);
 document.getElementById("upload-box").addEventListener("click", openFilePicker);
 fileInput.addEventListener("change", handleFileSelect);
@@ -76,8 +101,7 @@ viewToggle.addEventListener("click", (e) => {
   viewToggle.querySelectorAll(".view-opt").forEach(b => {
     b.setAttribute("aria-pressed", String(b === btn));
   });
-  applyView();
-  updateStats();
+  refresh();
 });
 
 exportBtn.addEventListener("click", openExportModal);
@@ -110,7 +134,7 @@ extractPagesInput.addEventListener("input", () => {
 );
 
 function selectExtract() {
-  const current = document.querySelector('input[name="exportMode"]:checked')?.value || "";
+  const current = getExportMode() || "";
   if (current.startsWith("extract")) return;
   const radio = document.querySelector('input[name="exportMode"][value="extract-only"]');
   radio.checked = true;
@@ -132,8 +156,8 @@ document.addEventListener("keydown", (e) => {
 });
 
 closeModal.addEventListener("click", closePreviewModal);
-prevPage.addEventListener("click", navigateToPrevPage);
-nextPage.addEventListener("click", navigateToNextPage);
+prevPage.addEventListener("click", () => stepPreview(-1));
+nextPage.addEventListener("click", () => stepPreview(1));
 modalRotateBtn.addEventListener("click", rotatePreviewPage);
 modalDeleteBtn.addEventListener("click", deletePreviewPage);
 modalOpenBtn.addEventListener("click", openPreviewInNewTab);
@@ -150,7 +174,7 @@ window.addEventListener("resize", () => {
   if (!AppData.temp.currentPreviewPageId) return;
   clearTimeout(AppData.temp.resizeTimer);
   AppData.temp.resizeTimer = setTimeout(() => {
-    const page = PDFManager.getPage(AppData.temp.currentPreviewPageId);
+    const page = currentPreviewPage();
     if (page) renderPreviewPage(page);
   }, 150);
 });
@@ -161,20 +185,20 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closePreviewModal();
   } else if (e.key === "ArrowLeft") {
-    navigateToPrevPage();
+    stepPreview(-1);
   } else if (e.key === "ArrowRight") {
-    navigateToNextPage();
+    stepPreview(1);
   } else if (e.key === "+" || e.key === "=") {
-    setPreviewZoom(AppData.temp.previewZoom * ZOOM_STEP);
+    zoomStep(1);
   } else if (e.key === "-") {
-    setPreviewZoom(AppData.temp.previewZoom / ZOOM_STEP);
+    zoomStep(-1);
   } else if (e.key === "0") {
     setPreviewZoom(1);
   }
 });
 
-zoomInBtn.addEventListener("click", () => setPreviewZoom(AppData.temp.previewZoom * ZOOM_STEP));
-zoomOutBtn.addEventListener("click", () => setPreviewZoom(AppData.temp.previewZoom / ZOOM_STEP));
+zoomInBtn.addEventListener("click", () => zoomStep(1));
+zoomOutBtn.addEventListener("click", () => zoomStep(-1));
 zoomLevel.addEventListener("click", () => setPreviewZoom(1));
 
 const WHEEL_ZOOM_THROTTLE_MS = 120;
@@ -187,8 +211,7 @@ previewModal.addEventListener("wheel", (e) => {
   if (now - AppData.temp.lastWheelZoom < WHEEL_ZOOM_THROTTLE_MS) return;
   AppData.temp.lastWheelZoom = now;
 
-  if (e.deltaY < 0) setPreviewZoom(AppData.temp.previewZoom * ZOOM_STEP);
-  else setPreviewZoom(AppData.temp.previewZoom / ZOOM_STEP);
+  zoomStep(e.deltaY < 0 ? 1 : -1);
 }, { passive: false });
 
 uploadZone.addEventListener("dragover", (e) => {
@@ -207,6 +230,10 @@ uploadZone.addEventListener("drop", (e) => {
   const files = Array.from(e.dataTransfer.files);
   processFiles(files);
 });
+
+/* ------------------------------------------------------------------ */
+/* Loading files                                                       */
+/* ------------------------------------------------------------------ */
 
 function openFilePicker() {
   fileInput.click();
@@ -255,8 +282,7 @@ async function processFilesNow(files) {
     }
   } finally {
     AppData.temp.busy = false;
-    updateStats();
-    updatePageNumbers();
+    refresh();
   }
 }
 
@@ -284,6 +310,10 @@ async function loadPDF(file, fileIndex) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Page grid                                                           */
+/* ------------------------------------------------------------------ */
+
 async function renderPage(pdfPage, rotation) {
   const viewport = pdfPage.getViewport({ scale: 0.5, rotation });
   const canvas = document.createElement("canvas");
@@ -304,6 +334,16 @@ async function renderPage(pdfPage, rotation) {
   return canvas;
 }
 
+// Re-renders a card's thumbnail (e.g. after a rotation) and swaps the canvas in place.
+async function refreshThumbnail(pageId) {
+  const page = PDFManager.getPage(pageId);
+  const wrapper = getCard(pageId)?.querySelector(".thumb-wrapper");
+  if (!page || !wrapper) return;
+
+  const canvas = await renderPage(page.pdfPage, page.rotation);
+  wrapper.replaceChildren(canvas);
+}
+
 async function addPageToGrid(pageObj) {
   const pageDiv = document.createElement("div");
   pageDiv.className = "pdf-page group relative rounded-none bg-gray-100 hover:bg-gray-200/70 p-1.5 cursor-grab active:cursor-grabbing";
@@ -320,14 +360,10 @@ async function addPageToGrid(pageObj) {
   checkboxContainer.className = "absolute top-3 right-3 z-10";
   checkboxContainer.innerHTML = `
     <label class="relative block w-6 h-6 cursor-pointer">
-      <input type="checkbox" class="page-checkbox peer sr-only" ${pageObj.selected ? "checked" : ""}>
-      <span class="relative w-6 h-6 rounded-full border-2 border-gray-300 bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-white text-sm transition-colors
-                   peer-checked:bg-gray-900 peer-checked:border-gray-900
-                   peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
-                   peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
-                   peer-checked:[&>.i-check]:opacity-100 peer-indeterminate:[&>.i-dash]:opacity-100">
-        <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
-        <i class="i-dash bi bi-dash-lg absolute opacity-0 transition-opacity"></i>
+      <input type="checkbox" class="page-checkbox sr-only" ${pageObj.selected ? "checked" : ""}>
+      <span class="circle-check circle-check-lg">
+        <i class="i-check bi bi-check-lg"></i>
+        <i class="i-dash bi bi-dash-lg"></i>
       </span>
     </label>
   `;
@@ -342,6 +378,7 @@ async function addPageToGrid(pageObj) {
   });
 
   const canvasWrapper = document.createElement("div");
+  canvasWrapper.className = "thumb-wrapper";
   canvasWrapper.style.maxWidth = "100%";
   canvasWrapper.style.height = "auto";
 
@@ -381,9 +418,7 @@ async function addPageToGrid(pageObj) {
     e.stopPropagation();
     if (AppData.data.fileView) {
       const page = PDFManager.getPage(pageObj.id);
-      PDFManager.getAllPages()
-        .filter(p => p.fileIndex === page.fileIndex)
-        .forEach(p => { p.selected = e.target.checked; });
+      PDFManager.pagesOfFile(page.fileIndex).forEach(p => { p.selected = e.target.checked; });
       syncSelectionUI();
     } else {
       PDFManager.toggleSelection(pageObj.id);
@@ -395,10 +430,7 @@ async function addPageToGrid(pageObj) {
   rotateBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     PDFManager.rotatePage(pageObj.id, 90);
-    const page = PDFManager.getPage(pageObj.id);
-    const newCanvas = await renderPage(page.pdfPage, page.rotation);
-    canvasWrapper.innerHTML = "";
-    canvasWrapper.appendChild(newCanvas);
+    await refreshThumbnail(pageObj.id);
   });
 
   deleteBtn.addEventListener("click", (e) => {
@@ -406,21 +438,13 @@ async function addPageToGrid(pageObj) {
 
     if (AppData.data.fileView) {
       const page = PDFManager.getPage(pageObj.id);
-      const filePages = PDFManager.getAllPages().filter(p => p.fileIndex === page.fileIndex);
-      const pageLabel = filePages.length === 1 ? "1 page" : `all ${filePages.length} pages`;
+      const filePages = PDFManager.pagesOfFile(page.fileIndex);
+      const pageLabel = filePages.length === 1 ? "1 page" : `all ${plural(filePages.length, "page")}`;
       if (!confirm(`Delete ${pageLabel} of "${page.fileName}"?`)) return;
-
-      for (const p of filePages) {
-        PDFManager.removePage(p.id);
-        document.querySelector(`[data-page-id="${p.id}"]`)?.remove();
-      }
+      removePages(filePages);
     } else {
-      PDFManager.removePage(pageObj.id);
-      pageDiv.remove();
+      removePages([pageObj]);
     }
-
-    updatePageNumbers();
-    updateStats();
   });
 
   pageDiv.addEventListener("dragstart", handleDragStart);
@@ -429,6 +453,19 @@ async function addPageToGrid(pageObj) {
   pagesGrid.appendChild(pageDiv);
 }
 
+// Removes pages from the model and the DOM, then refreshes numbering and stats.
+function removePages(pages) {
+  for (const page of pages) {
+    PDFManager.removePage(page.id);
+    getCard(page.id)?.remove();
+  }
+  refresh();
+}
+
+/* ------------------------------------------------------------------ */
+/* Drag & drop reordering                                              */
+/* ------------------------------------------------------------------ */
+
 const dropIndicator = document.createElement("div");
 dropIndicator.className = "drop-indicator";
 pagesGrid.appendChild(dropIndicator);
@@ -436,6 +473,11 @@ pagesGrid.appendChild(dropIndicator);
 mainContent.addEventListener("dragover", handleDragOver);
 mainContent.addEventListener("drop", handleDrop);
 mainContent.addEventListener("dragleave", handleDragLeave);
+
+function clearDropPlan() {
+  AppData.temp.dragPlan = null;
+  dropIndicator.classList.remove("visible");
+}
 
 function handleDragStart(e) {
   const card = e.currentTarget;
@@ -469,10 +511,7 @@ function handleDragOver(e) {
 
 function handleDragLeave(e) {
   if (AppData.temp.draggedPageId === null) return;
-  if (!mainContent.contains(e.relatedTarget)) {
-    AppData.temp.dragPlan = null;
-    dropIndicator.classList.remove("visible");
-  }
+  if (!mainContent.contains(e.relatedTarget)) clearDropPlan();
 }
 
 function handleDrop(e) {
@@ -481,11 +520,11 @@ function handleDrop(e) {
 
   const draggedId = AppData.temp.draggedPageId;
   const plan = AppData.temp.dragPlan;
-  const card = pagesGrid.querySelector(`[data-page-id="${draggedId}"]`);
+  const card = getCard(draggedId);
   finishDrag();
   if (!plan || !card) return;
 
-  const target = pagesGrid.querySelector(`[data-page-id="${plan.targetId}"]`);
+  const target = getCard(plan.targetId);
   if (!target) return;
 
   animateReorder(() => {
@@ -498,7 +537,7 @@ function handleDrop(e) {
     }
   });
 
-  updatePageNumbers();
+  applyView();
 }
 
 function handleDragEnd() {
@@ -507,9 +546,8 @@ function handleDragEnd() {
 
 function finishDrag() {
   AppData.temp.draggedPageId = null;
-  AppData.temp.dragPlan = null;
   AppData.temp.dragCache = [];
-  dropIndicator.classList.remove("visible");
+  clearDropPlan();
   if (AppData.temp.autoScrollRaf) {
     cancelAnimationFrame(AppData.temp.autoScrollRaf);
     AppData.temp.autoScrollRaf = null;
@@ -535,8 +573,7 @@ function updateDropTarget() {
   }
 
   if (!best) {
-    AppData.temp.dragPlan = null;
-    dropIndicator.classList.remove("visible");
+    clearDropPlan();
     return;
   }
 
@@ -547,8 +584,7 @@ function updateDropTarget() {
   if (fromIndex < toIndex) toIndex--;
 
   if (fromIndex === -1 || toIndex === fromIndex) {
-    AppData.temp.dragPlan = null;
-    dropIndicator.classList.remove("visible");
+    clearDropPlan();
     return;
   }
 
@@ -613,6 +649,10 @@ function animateReorder(mutate) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* View (pages / files) and selection                                  */
+/* ------------------------------------------------------------------ */
+
 function representativePages() {
   const seen = new Set();
   return PDFManager.getAllPages().filter(p => {
@@ -646,7 +686,7 @@ function applyView() {
 }
 
 function syncSelectionUI() {
-  const pages = PDFManager.getAllPages();
+  const groups = PDFManager.groupByFile();
 
   pagesGrid.querySelectorAll(".pdf-page").forEach(el => {
     const page = PDFManager.getPage(Number(el.dataset.pageId));
@@ -654,7 +694,7 @@ function syncSelectionUI() {
 
     const cb = el.querySelector(".page-checkbox");
     if (AppData.data.fileView) {
-      const filePages = pages.filter(p => p.fileIndex === page.fileIndex);
+      const filePages = groups.get(page.fileIndex);
       const count = filePages.filter(p => p.selected).length;
       const all = count === filePages.length;
       cb.checked = all;
@@ -685,7 +725,7 @@ function moveFileGroup(draggedId, targetId, after) {
   const dragFile = PDFManager.getPage(draggedId).fileIndex;
   const targetFile = PDFManager.getPage(targetId).fileIndex;
 
-  const moving = pages.filter(p => p.fileIndex === dragFile);
+  const moving = PDFManager.pagesOfFile(dragFile);
   const rest = pages.filter(p => p.fileIndex !== dragFile);
 
   let at;
@@ -700,13 +740,9 @@ function moveFileGroup(draggedId, targetId, after) {
   PDFManager.pages = rest;
 
   rest.forEach(p => {
-    const el = pagesGrid.querySelector(`[data-page-id="${p.id}"]`);
+    const el = getCard(p.id);
     if (el) pagesGrid.insertBefore(el, dropIndicator);
   });
-}
-
-function updatePageNumbers() {
-  applyView();
 }
 
 function handleSelectAll(e) {
@@ -725,16 +761,9 @@ function handleDeleteSelected() {
   const selected = PDFManager.getSelectedPages();
   if (selected.length === 0) return;
 
-  const label = selected.length === 1 ? "1 selected page" : `${selected.length} selected pages`;
-  if (!confirm(`Delete ${label}?`)) return;
+  if (!confirm(`Delete ${plural(selected.length, "selected page")}?`)) return;
 
-  for (const page of selected) {
-    PDFManager.removePage(page.id);
-    document.querySelector(`[data-page-id="${page.id}"]`)?.remove();
-  }
-
-  updatePageNumbers();
-  updateStats();
+  removePages(selected);
 }
 
 function handleDeleteLastPages() {
@@ -743,16 +772,9 @@ function handleDeleteLastPages() {
   const targets = [...lastByFile.values()];
   if (targets.length === 0) return;
 
-  const label = targets.length === 1 ? "the last page of 1 selected file" : `the last page of ${targets.length} selected files`;
-  if (!confirm(`Delete ${label}?`)) return;
+  if (!confirm(`Delete the last page of ${plural(targets.length, "selected file")}?`)) return;
 
-  for (const page of targets) {
-    PDFManager.removePage(page.id);
-    document.querySelector(`[data-page-id="${page.id}"]`)?.remove();
-  }
-
-  updatePageNumbers();
-  updateStats();
+  removePages(targets);
 }
 
 function updateStats() {
@@ -777,6 +799,10 @@ function updateStats() {
   deleteLastPagesBtn.disabled = AppData.temp.busy || selected === 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Export: PDF building blocks                                         */
+/* ------------------------------------------------------------------ */
+
 async function loadSourcePdfs(pages) {
   const loadedPdfs = new Map();
   const uniqueFileIndices = [...new Set(pages.map(p => p.fileIndex))];
@@ -799,43 +825,100 @@ async function copyPageInto(targetPdf, sourcePdfs, page) {
   targetPdf.addPage(copiedPage);
 }
 
+// Builds one PDF from `pages` and returns its bytes. `context` names what failed in the
+// error message: a string, or a function (page, index) => string. Defaults to "page N".
+async function buildPdf(pages, sources, context = (page, i) => `page ${i + 1}`) {
+  const outPdf = await PDFLib.PDFDocument.create();
+
+  for (const [i, page] of pages.entries()) {
+    try {
+      await copyPageInto(outPdf, sources, page);
+    } catch (error) {
+      const label = typeof context === "function" ? context(page, i) : context;
+      throw new Error(`Failed on ${label}: ${error.message}`);
+    }
+  }
+
+  return outPdf.save();
+}
+
+// One result downloads directly; several are zipped into a timestamped folder.
+async function saveResults(results) {
+  if (results.length === 1) {
+    downloadFile(results[0].bytes, results[0].name, "application/pdf");
+    return;
+  }
+
+  const folderName = exportFolderName();
+  const zip = new JSZip();
+  const folder = zip.folder(folderName);
+  results.forEach(r => folder.file(r.name, r.bytes));
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
+}
+
+// Shared shell for every export: busy flag, error reporting, cleanup.
+async function runExport(action, fn) {
+  AppData.temp.busy = true;
+  updateStats();
+
+  try {
+    await fn();
+  } catch (error) {
+    console.error(`Export failed (${action}):`, error);
+    alert(`Error ${action}: ${error.message}\n\nCheck console for details.`);
+  } finally {
+    AppData.temp.busy = false;
+    updateStats();
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Export modal                                                        */
+/* ------------------------------------------------------------------ */
+
+const EXPORT_COPY = {
+  "merge-desc": {
+    files: "Combine all pages of the selected files into one PDF",
+    pages: "Combine selected pages into one PDF"
+  },
+  "extract-only-desc": {
+    files: "Export each selected file as its own PDF",
+    pages: "Export each selected page as its own PDF"
+  },
+  "extract-pages-desc": {
+    files: "Export the same page numbers from each selected file",
+    pages: "Export only the page numbers you enter"
+  },
+  "extract-range-desc": {
+    files: "Export the same page range from each selected file",
+    pages: "Export every page from one number to another"
+  }
+};
+
 function openExportModal() {
   const count = PDFManager.getSelectedPages().length;
   if (count === 0) return;
 
-  if (AppData.data.fileView) {
-    const fileCount = selectedFileOrder().length;
-    exportCount.textContent = fileCount === 1 ? "1 file" : `${fileCount} files`;
-  } else {
-    exportCount.textContent = count === 1 ? "1 page" : `${count} pages`;
+  const fileView = AppData.data.fileView;
+  const fileCount = selectedFileOrder().length;
+
+  exportCount.textContent = fileView ? plural(fileCount, "file") : plural(count, "page");
+
+  for (const [id, text] of Object.entries(EXPORT_COPY)) {
+    document.getElementById(id).textContent = fileView ? text.files : text.pages;
   }
 
-  document.getElementById("merge-desc").textContent = AppData.data.fileView
-    ? "Combine all pages of the selected files into one PDF"
-    : "Combine selected pages into one PDF";
-  document.getElementById("extract-only-desc").textContent = AppData.data.fileView
-    ? "Export each selected file as its own PDF"
-    : "Export each selected page as its own PDF";
+  for (const id of ["extract-first-option", "extract-last-option"]) {
+    document.getElementById(id).classList.toggle("hidden", !fileView);
+  }
 
-  document.getElementById("extract-first-option").classList.toggle("hidden", !AppData.data.fileView);
-  document.getElementById("extract-last-option").classList.toggle("hidden", !AppData.data.fileView);
-
-  document.getElementById("extract-pages-desc").textContent = AppData.data.fileView
-    ? "Export the same page numbers from each selected file"
-    : "Export only the page numbers you enter";
-  document.getElementById("extract-range-desc").textContent = AppData.data.fileView
-    ? "Export the same page range from each selected file"
-    : "Export every page from one number to another";
-
-  if (AppData.data.fileView) {
-    const fileCount = selectedFileOrder().length;
+  if (fileView) {
     const ok = fileCount >= 2 && fileCount % 2 === 0;
 
     pairMergeCheckbox.disabled = !ok;
     if (!ok) pairMergeCheckbox.checked = false;
-    pairMergeOption.classList.toggle("opacity-40", !ok);
-    pairMergeOption.classList.toggle("cursor-not-allowed", !ok);
-    pairMergeOption.classList.toggle("cursor-pointer", ok);
+    setOptionDisabled(pairMergeOption, !ok);
 
     pairMergeOption.title = ok ? "" : `Needs an even number of selected files (${fileCount} selected)`;
   }
@@ -852,7 +935,7 @@ function openExportModal() {
 }
 
 function updateExportSubOptions() {
-  const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
+  const mode = getExportMode();
   const isMerge = mode === "merge";
 
   const isExtract = !!mode && mode.startsWith("extract");
@@ -876,10 +959,7 @@ function updateExportSubOptions() {
 
   const locked = isMerge || mode === "extract-only";
   separateCheckbox.disabled = locked;
-  separateOption.classList.toggle("opacity-40", locked);
-  separateOption.classList.toggle("cursor-not-allowed", locked);
-  separateOption.classList.toggle("cursor-pointer", !locked);
-  separateOption.classList.toggle("hover:bg-gray-100", !locked);
+  setOptionDisabled(separateOption, locked, { hover: true });
 
   extractPagesFields.classList.toggle("hidden", mode !== "extract-pages");
   extractRangeFields.classList.toggle("hidden", mode !== "extract-range");
@@ -891,7 +971,7 @@ function closeExportModal() {
 }
 
 function handleExportConfirm() {
-  const mode = document.querySelector('input[name="exportMode"]:checked').value;
+  const mode = getExportMode();
 
   if ((mode === "extract-pages" || mode === "extract-range") && getExtractRequest().error) return;
 
@@ -913,87 +993,39 @@ function handleExportConfirm() {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Export handlers                                                     */
+/* ------------------------------------------------------------------ */
+
 async function handleMerge() {
-  const pagesToMerge = PDFManager.getSelectedPages();
-  if (pagesToMerge.length === 0) return;
+  const pages = PDFManager.getSelectedPages();
+  if (pages.length === 0) return;
 
-  AppData.temp.busy = true;
-  updateStats();
-
-  try {
-    const mergedPdf = await PDFLib.PDFDocument.create();
-    const loadedPdfs = await loadSourcePdfs(pagesToMerge);
-
-    for (let i = 0; i < pagesToMerge.length; i++) {
-      try {
-        await copyPageInto(mergedPdf, loadedPdfs, pagesToMerge[i]);
-      } catch (pageError) {
-        throw new Error(`Failed on page ${i + 1}: ${pageError.message}`);
-      }
-    }
-
-    const pdfBytes = await mergedPdf.save();
-    const filename = exportBaseName();
-    downloadFile(pdfBytes, `${filename}.pdf`, "application/pdf");
-  } catch (error) {
-    console.error("Merge failed:", error);
-    alert(`Error merging PDF: ${error.message}\n\nCheck console for details.`);
-  } finally {
-    AppData.temp.busy = false;
-    updateStats();
-  }
+  await runExport("merging PDF", async () => {
+    const sources = await loadSourcePdfs(pages);
+    const bytes = await buildPdf(pages, sources);
+    await saveResults([{ name: `${exportBaseName()}.pdf`, bytes }]);
+  });
 }
 
 async function handleSeparatePages() {
-  const pagesToSeparate = PDFManager.getSelectedPages();
-  if (pagesToSeparate.length === 0) return;
+  const pages = PDFManager.getSelectedPages();
+  if (pages.length === 0) return;
 
-  AppData.temp.busy = true;
-  updateStats();
-
-  try {
-    const loadedPdfs = await loadSourcePdfs(pagesToSeparate);
-    const filename = exportBaseName();
+  await runExport("separating pages", async () => {
+    const sources = await loadSourcePdfs(pages);
+    const base = exportBaseName();
     const allPages = PDFManager.getAllPages();
+    const results = [];
 
-    if (pagesToSeparate.length === 1) {
-      const page = pagesToSeparate[0];
-      const singlePdf = await PDFLib.PDFDocument.create();
-      await copyPageInto(singlePdf, loadedPdfs, page);
-
-      const pdfBytes = await singlePdf.save();
+    for (const [i, page] of pages.entries()) {
+      const bytes = await buildPdf([page], sources, `page ${i + 1}`);
       const pageIndex = allPages.findIndex(p => p.id === page.id);
-      downloadFile(pdfBytes, `${filename}-${padNum(pageIndex + 1, allPages.length)}.pdf`, "application/pdf");
-    } else {
-      const folderName = exportFolderName();
-      const zip = new JSZip();
-      const folder = zip.folder(folderName);
-
-      for (let i = 0; i < pagesToSeparate.length; i++) {
-        const page = pagesToSeparate[i];
-
-        try {
-          const singlePdf = await PDFLib.PDFDocument.create();
-          await copyPageInto(singlePdf, loadedPdfs, page);
-
-          const pdfBytes = await singlePdf.save();
-          const pageIndex = allPages.findIndex(p => p.id === page.id);
-          folder.file(`${filename}-${padNum(pageIndex + 1, allPages.length)}.pdf`, pdfBytes);
-        } catch (pageError) {
-          throw new Error(`Failed on page ${i + 1}: ${pageError.message}`);
-        }
-      }
-
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
+      results.push({ name: `${base}-${padNum(pageIndex + 1, allPages.length)}.pdf`, bytes });
     }
-  } catch (error) {
-    console.error("Separate pages failed:", error);
-    alert(`Error separating pages: ${error.message}\n\nCheck console for details.`);
-  } finally {
-    AppData.temp.busy = false;
-    updateStats();
-  }
+
+    await saveResults(results);
+  });
 }
 
 function selectedFileOrder() {
@@ -1012,13 +1044,10 @@ async function handleMergeInPairs() {
 
   const half = order.length / 2;
   const selected = PDFManager.getSelectedPages();
-  const pagesOf = fileIndex => selected.filter(p => p.fileIndex === fileIndex);
+  const groups = PDFManager.groupByFile(selected);
 
-  AppData.temp.busy = true;
-  updateStats();
-
-  try {
-    const loadedPdfs = await loadSourcePdfs(selected);
+  await runExport("merging files", async () => {
+    const sources = await loadSourcePdfs(selected);
     const results = [];
 
     for (let i = 0; i < half; i++) {
@@ -1027,90 +1056,34 @@ async function handleMergeInPairs() {
       const firstName = PDFManager.originalFiles[firstIndex].name;
       const secondName = PDFManager.originalFiles[secondIndex].name;
 
-      try {
-        const outPdf = await PDFLib.PDFDocument.create();
-        for (const page of [...pagesOf(firstIndex), ...pagesOf(secondIndex)]) {
-          await copyPageInto(outPdf, loadedPdfs, page);
-        }
-        const bytes = await outPdf.save();
-
-        const name = `${exportBaseName()}-${padNum(i + 1, half)}.pdf`;
-        results.push({ name, bytes });
-      } catch (pairError) {
-        throw new Error(`Failed on "${firstName}" + "${secondName}": ${pairError.message}`);
-      }
+      const pages = [...groups.get(firstIndex), ...groups.get(secondIndex)];
+      const bytes = await buildPdf(pages, sources, `"${firstName}" + "${secondName}"`);
+      results.push({ name: `${exportBaseName()}-${padNum(i + 1, half)}.pdf`, bytes });
     }
 
-    if (results.length === 1) {
-      downloadFile(results[0].bytes, results[0].name, "application/pdf");
-    } else {
-      const folderName = exportFolderName();
-      const zip = new JSZip();
-      const folder = zip.folder(folderName);
-      results.forEach(r => folder.file(r.name, r.bytes));
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
-    }
-  } catch (error) {
-    console.error("Merge in pairs failed:", error);
-    alert(`Error merging files: ${error.message}\n\nCheck console for details.`);
-  } finally {
-    AppData.temp.busy = false;
-    updateStats();
-  }
+    await saveResults(results);
+  });
 }
 
 async function handleSeparateFiles() {
   const selected = PDFManager.getSelectedPages();
   if (selected.length === 0) return;
 
-  const groups = new Map();
-  for (const page of selected) {
-    if (!groups.has(page.fileIndex)) groups.set(page.fileIndex, []);
-    groups.get(page.fileIndex).push(page);
-  }
+  const groups = PDFManager.groupByFile(selected);
 
-  AppData.temp.busy = true;
-  updateStats();
-
-  try {
-    const loadedPdfs = await loadSourcePdfs(selected);
+  await runExport("saving files", async () => {
+    const sources = await loadSourcePdfs(selected);
     const results = [];
     let seq = 0;
 
     for (const [fileIndex, pages] of groups) {
       const fileName = PDFManager.originalFiles[fileIndex].name;
-      try {
-        const outPdf = await PDFLib.PDFDocument.create();
-        for (const page of pages) {
-          await copyPageInto(outPdf, loadedPdfs, page);
-        }
-        const bytes = await outPdf.save();
-
-        const name = `${exportBaseName()}-${padNum(++seq, groups.size)}.pdf`;
-        results.push({ name, bytes });
-      } catch (fileError) {
-        throw new Error(`Failed on "${fileName}": ${fileError.message}`);
-      }
+      const bytes = await buildPdf(pages, sources, `"${fileName}"`);
+      results.push({ name: `${exportBaseName()}-${padNum(++seq, groups.size)}.pdf`, bytes });
     }
 
-    if (results.length === 1) {
-      downloadFile(results[0].bytes, results[0].name, "application/pdf");
-    } else {
-      const folderName = exportFolderName();
-      const zip = new JSZip();
-      const folder = zip.folder(folderName);
-      results.forEach(r => folder.file(r.name, r.bytes));
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
-    }
-  } catch (error) {
-    console.error("Separate files failed:", error);
-    alert(`Error saving files: ${error.message}\n\nCheck console for details.`);
-  } finally {
-    AppData.temp.busy = false;
-    updateStats();
-  }
+    await saveResults(results);
+  });
 }
 
 async function handleExtractEdgePages(which) {
@@ -1130,59 +1103,27 @@ async function handleExtractEdgePages(which) {
   }
   const edgePages = selectedFileOrder().map(fileIndex => edgeByFile.get(fileIndex));
 
-  AppData.temp.busy = true;
-  updateStats();
-
-  try {
-    const loadedPdfs = await loadSourcePdfs(edgePages);
+  await runExport(`extracting ${which} pages`, async () => {
+    const sources = await loadSourcePdfs(edgePages);
+    const base = exportBaseName();
 
     if (!separate) {
-      const outPdf = await PDFLib.PDFDocument.create();
-      for (const page of edgePages) {
-        try {
-          await copyPageInto(outPdf, loadedPdfs, page);
-        } catch (pageError) {
-          throw new Error(`Failed on "${page.fileName}": ${pageError.message}`);
-        }
-      }
-      const bytes = await outPdf.save();
-      downloadFile(bytes, `${exportBaseName()}${suffix}.pdf`, "application/pdf");
-    } else {
-      const results = [];
-
-      for (const [i, page] of edgePages.entries()) {
-        try {
-          const outPdf = await PDFLib.PDFDocument.create();
-          await copyPageInto(outPdf, loadedPdfs, page);
-          const bytes = await outPdf.save();
-          results.push({ name: `${exportBaseName()}-${padNum(i + 1, edgePages.length)}${suffix}.pdf`, bytes });
-        } catch (fileError) {
-          throw new Error(`Failed on "${page.fileName}": ${fileError.message}`);
-        }
-      }
-
-      if (results.length === 1) {
-        downloadFile(results[0].bytes, results[0].name, "application/pdf");
-      } else {
-        const folderName = exportFolderName();
-        const zip = new JSZip();
-        const folder = zip.folder(folderName);
-        results.forEach(r => folder.file(r.name, r.bytes));
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
-      }
+      const bytes = await buildPdf(edgePages, sources, page => `"${page.fileName}"`);
+      await saveResults([{ name: `${base}${suffix}.pdf`, bytes }]);
+      return;
     }
-  } catch (error) {
-    console.error(`Extract ${which} pages failed:`, error);
-    alert(`Error extracting ${which} pages: ${error.message}\n\nCheck console for details.`);
-  } finally {
-    AppData.temp.busy = false;
-    updateStats();
-  }
+
+    const results = [];
+    for (const [i, page] of edgePages.entries()) {
+      const bytes = await buildPdf([page], sources, `"${page.fileName}"`);
+      results.push({ name: `${base}-${padNum(i + 1, edgePages.length)}${suffix}.pdf`, bytes });
+    }
+    await saveResults(results);
+  });
 }
 
 function getExtractRequest() {
-  const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
+  const mode = getExportMode();
   if (mode !== "extract-pages" && mode !== "extract-range") return { error: null };
 
   let numbers = null;
@@ -1233,10 +1174,9 @@ function getExtractRequest() {
     const tooShort = [];
 
     for (const fileIndex of selectedFileOrder()) {
-      const filePages = selected.filter(p => p.fileIndex === fileIndex);
+      const filePages = PDFManager.pagesOfFile(fileIndex, selected);
       if (filePages.length < max) {
-        const n = filePages.length;
-        tooShort.push(`"${filePages[0].fileName}" has only ${n} selected page${n === 1 ? "" : "s"}`);
+        tooShort.push(`"${filePages[0].fileName}" has only ${plural(filePages.length, "selected page")}`);
       }
       groups.push(filePages.filter((p, i) => has(i + 1)));
     }
@@ -1250,7 +1190,7 @@ function getExtractRequest() {
 
   if (max > all.length) {
     const n = all.length;
-    return { error: `Page ${max} doesn't exist: only ${n} page${n === 1 ? " is" : "s are"} loaded.` };
+    return { error: `Page ${max} doesn't exist: only ${plural(n, "page")} ${n === 1 ? "is" : "are"} loaded.` };
   }
 
   const pages = all.filter((p, i) => p.selected && has(i + 1));
@@ -1264,7 +1204,7 @@ function updateExtractValidity() {
   const req = getExtractRequest();
   AppData.temp.extractError = req.error || null;
 
-  const mode = document.querySelector('input[name="exportMode"]:checked')?.value;
+  const mode = getExportMode();
   const target = mode === "extract-range" ? extractRangeWarning : extractPagesWarning;
   const show = !!req.error && !req.silent;
 
@@ -1285,45 +1225,21 @@ async function handleExtractSpecific() {
 
   const groups = separateCheckbox.checked ? req.groups : [req.groups.flat()];
 
-  AppData.temp.busy = true;
-  updateStats();
-
-  try {
-    const loadedPdfs = await loadSourcePdfs(groups.flat());
+  await runExport("extracting pages", async () => {
+    const sources = await loadSourcePdfs(groups.flat());
+    const base = exportBaseName();
     const results = [];
 
     for (const [i, group] of groups.entries()) {
-      try {
-        const outPdf = await PDFLib.PDFDocument.create();
-        for (const page of group) await copyPageInto(outPdf, loadedPdfs, page);
-        const bytes = await outPdf.save();
-
-        const name = groups.length === 1
-          ? `${exportBaseName()}${req.label}.pdf`
-          : `${exportBaseName()}-${padNum(i + 1, groups.length)}${req.label}.pdf`;
-        results.push({ name, bytes });
-      } catch (groupError) {
-        throw new Error(`Failed on output ${i + 1}: ${groupError.message}`);
-      }
+      const bytes = await buildPdf(group, sources, `output ${i + 1}`);
+      const name = groups.length === 1
+        ? `${base}${req.label}.pdf`
+        : `${base}-${padNum(i + 1, groups.length)}${req.label}.pdf`;
+      results.push({ name, bytes });
     }
 
-    if (results.length === 1) {
-      downloadFile(results[0].bytes, results[0].name, "application/pdf");
-    } else {
-      const folderName = exportFolderName();
-      const zip = new JSZip();
-      const folder = zip.folder(folderName);
-      results.forEach(r => folder.file(r.name, r.bytes));
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      downloadFile(zipBlob, `${folderName}.zip`, "application/zip");
-    }
-  } catch (error) {
-    console.error("Extract specific pages failed:", error);
-    alert(`Error extracting pages: ${error.message}\n\nCheck console for details.`);
-  } finally {
-    AppData.temp.busy = false;
-    updateStats();
-  }
+    await saveResults(results);
+  });
 }
 
 function exportBaseName() {
@@ -1354,6 +1270,10 @@ function downloadFile(data, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
+/* ------------------------------------------------------------------ */
+/* Preview modal                                                       */
+/* ------------------------------------------------------------------ */
+
 async function openPreviewModal(pageId) {
   const page = PDFManager.getPage(pageId);
   if (!page) return;
@@ -1378,12 +1298,18 @@ function closePreviewModal() {
 }
 
 function setPreviewZoom(z) {
-  const page = PDFManager.getPage(AppData.temp.currentPreviewPageId);
+  const page = currentPreviewPage();
   if (!page) return;
   const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
   if (Math.abs(next - AppData.temp.previewZoom) < 0.001) return;
   AppData.temp.previewZoom = next;
   renderPreviewPage(page);
+}
+
+// dir > 0 zooms in one step, dir < 0 zooms out one step.
+function zoomStep(dir) {
+  const z = AppData.temp.previewZoom;
+  setPreviewZoom(dir > 0 ? z * ZOOM_STEP : z / ZOOM_STEP);
 }
 
 async function renderPreviewPage(page, { resetView = false } = {}) {
@@ -1464,44 +1390,37 @@ function previewScopePages(pageId = AppData.temp.currentPreviewPageId) {
   const all = PDFManager.getAllPages();
   if (!AppData.data.fileView) return all;
   const page = PDFManager.getPage(pageId);
-  return page ? all.filter(p => p.fileIndex === page.fileIndex) : all;
+  return page ? PDFManager.pagesOfFile(page.fileIndex) : all;
 }
 
-function navigateToPrevPage() {
-  if (!AppData.temp.currentPreviewPageId) return;
-
-  const allPages = previewScopePages();
-  const currentIndex = allPages.findIndex(p => p.id === AppData.temp.currentPreviewPageId);
-
-  if (currentIndex > 0) {
-    openPreviewModal(allPages[currentIndex - 1].id);
-  }
+// The pages the preview can step through, and where the current page sits among them.
+function previewPosition() {
+  const scope = previewScopePages();
+  return { scope, index: scope.findIndex(p => p.id === AppData.temp.currentPreviewPageId) };
 }
 
-function navigateToNextPage() {
+function stepPreview(delta) {
   if (!AppData.temp.currentPreviewPageId) return;
 
-  const allPages = previewScopePages();
-  const currentIndex = allPages.findIndex(p => p.id === AppData.temp.currentPreviewPageId);
+  const { scope, index } = previewPosition();
+  const target = scope[index + delta];
+  if (target) openPreviewModal(target.id);
+}
 
-  if (currentIndex < allPages.length - 1) {
-    openPreviewModal(allPages[currentIndex + 1].id);
-  }
+function setNavEnabled(btn, enabled) {
+  btn.style.opacity = enabled ? "1" : "0.3";
+  btn.style.cursor = enabled ? "pointer" : "not-allowed";
 }
 
 function updateNavigationButtons() {
-  const allPages = previewScopePages();
-  const currentIndex = allPages.findIndex(p => p.id === AppData.temp.currentPreviewPageId);
+  const { scope, index } = previewPosition();
 
-  prevPage.style.opacity = currentIndex > 0 ? "1" : "0.3";
-  prevPage.style.cursor = currentIndex > 0 ? "pointer" : "not-allowed";
-
-  nextPage.style.opacity = currentIndex < allPages.length - 1 ? "1" : "0.3";
-  nextPage.style.cursor = currentIndex < allPages.length - 1 ? "pointer" : "not-allowed";
+  setNavEnabled(prevPage, index > 0);
+  setNavEnabled(nextPage, index < scope.length - 1);
 }
 
 function openPreviewInNewTab() {
-  const page = PDFManager.getPage(AppData.temp.currentPreviewPageId);
+  const page = currentPreviewPage();
   if (!page) return;
 
   let url = AppData.temp.sourceUrls.get(page.fileIndex);
@@ -1514,42 +1433,29 @@ function openPreviewInNewTab() {
 }
 
 function deletePreviewPage() {
-  if (!AppData.temp.currentPreviewPageId) return;
+  const page = currentPreviewPage();
+  if (!page) return;
 
-  const allPages = previewScopePages();
-  const index = allPages.findIndex(p => p.id === AppData.temp.currentPreviewPageId);
+  const { scope, index } = previewPosition();
   if (index === -1) return;
 
-  const removedId = AppData.temp.currentPreviewPageId;
-  const nextPageObj = allPages[index + 1] || allPages[index - 1] || null;
+  const neighbor = scope[index + 1] || scope[index - 1] || null;
 
-  PDFManager.removePage(removedId);
-  document.querySelector(`[data-page-id="${removedId}"]`)?.remove();
-  updatePageNumbers();
-  updateStats();
+  removePages([page]);
 
-  if (nextPageObj) {
-    openPreviewModal(nextPageObj.id);
+  if (neighbor) {
+    openPreviewModal(neighbor.id);
   } else {
     closePreviewModal();
   }
 }
 
 async function rotatePreviewPage() {
-  if (!AppData.temp.currentPreviewPageId) return;
-
-  const page = PDFManager.getPage(AppData.temp.currentPreviewPageId);
+  const page = currentPreviewPage();
   if (!page) return;
 
-  PDFManager.rotatePage(AppData.temp.currentPreviewPageId, 90);
+  PDFManager.rotatePage(page.id, 90);
 
   await renderPreviewPage(page);
-
-  const pageDiv = document.querySelector(`[data-page-id="${AppData.temp.currentPreviewPageId}"]`);
-  if (pageDiv) {
-    const canvasWrapper = pageDiv.querySelector(".p-2 > div");
-    const newCanvas = await renderPage(page.pdfPage, page.rotation);
-    canvasWrapper.innerHTML = "";
-    canvasWrapper.appendChild(newCanvas);
-  }
+  await refreshThumbnail(page.id);
 }

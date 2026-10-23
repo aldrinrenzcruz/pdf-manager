@@ -11,6 +11,165 @@ textarea {
   user-select: text;
 }
 
+/* ------------------------------------------------------------------ */
+/* Shared components (Tailwind CDN has no @apply, so these are plain CSS) */
+/* ------------------------------------------------------------------ */
+
+/* Toolbar / header text button */
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: #374151;
+  border-radius: 0.5rem;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Circular checkbox: <input class="sr-only"> immediately followed by <span class="circle-check"> */
+.circle-check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #d1d5db;
+  border-radius: 9999px;
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.circle-check-lg {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.circle-check > i {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+input:checked + .circle-check,
+input:indeterminate + .circle-check {
+  background: #111827;
+  border-color: #111827;
+}
+
+input:focus-visible + .circle-check {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #9ca3af;
+}
+
+input:checked + .circle-check > .i-check,
+input:indeterminate + .circle-check > .i-dash {
+  opacity: 1;
+}
+
+/* Export modal radio rows: <label class="radio-row"><input class="sr-only"><div class="radio-row-body">…</div><i class="radio-row-check"></i></label> */
+.radio-row {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+
+.radio-row.hidden {
+  display: none;
+}
+
+.radio-row-sub {
+  margin-left: 2.5rem;
+}
+
+.radio-row-body {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 4rem 1rem 1.75rem;
+  border-radius: 9999px;
+  color: #374151;
+  transition: background-color 0.15s ease;
+}
+
+.radio-row-sub .radio-row-body {
+  padding: 0.75rem 3.5rem 0.75rem 1.5rem;
+}
+
+.radio-row-body:hover,
+input:checked + .radio-row-body {
+  background: #f3f4f6;
+}
+
+input:focus-visible + .radio-row-body {
+  box-shadow: 0 0 0 2px #9ca3af;
+}
+
+.radio-row-title {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.radio-row:not(.radio-row-sub) .radio-row-title,
+#extract-header .radio-row-title {
+  font-weight: 600;
+}
+
+.radio-row-desc {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #6b7280;
+}
+
+.radio-row-check {
+  position: absolute;
+  top: 50%;
+  right: 1.75rem;
+  transform: translateY(-50%);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  color: #111827;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.radio-row-sub .radio-row-check {
+  right: 1.5rem;
+}
+
+input:checked ~ .radio-row-check {
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Preview modal                                                       */
+/* ------------------------------------------------------------------ */
+
 #preview-modal {
   position: fixed;
   inset: 0;
@@ -219,7 +378,12 @@ textarea {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Page cards                                                          */
+/* ------------------------------------------------------------------ */
+
 .pdf-page {
+  -webkit-user-drag: element;
   box-shadow: 0 0 0 2px transparent;
   transition:
     box-shadow 0.15s ease,
@@ -248,10 +412,6 @@ textarea {
 
 .pdf-page:not(.selected) canvas {
   opacity: 0.65;
-}
-
-.pdf-page {
-  -webkit-user-drag: element;
 }
 
 .drop-indicator {
