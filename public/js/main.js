@@ -537,7 +537,9 @@ function createDocRow(doc) {
   `;
 
   const strip = document.createElement("div");
-  strip.className = "doc-strip flex gap-4 overflow-x-auto pb-2";
+  // Padding (with matching negative side margins) leaves room for the selection ring, which the
+  // scroll container would otherwise clip.
+  strip.className = "doc-strip flex gap-4 overflow-x-auto -mx-1 px-1 pt-1 pb-2";
 
   row.append(header, strip);
 
@@ -937,14 +939,8 @@ function handleDeleteLastPages() {
 }
 
 // Pairs the selected documents: the first half keeps its place and name, and each one swallows
-// the matching document of the second half. Works on documents, so it needs Row view.
+// the matching document of the second half. Works in both views.
 function handlePairUp() {
-  if (!isRows()) {
-    const ok = confirm("Pair up works on documents, so it needs Row View.\n\nSwitch to Row View and pair the selected documents?");
-    if (!ok) return;
-    setView("rows");
-  }
-
   const docs = selectedDocs();
   if (docs.length < 2 || docs.length % 2 !== 0) {
     alert(`Pair up needs an even number of selected documents (${docs.length} selected).`);
