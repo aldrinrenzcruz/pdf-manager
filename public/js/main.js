@@ -7,6 +7,11 @@ const uploadZone = document.getElementById("upload-zone");
 const pagesGrid = document.getElementById("pages-grid");
 const fileInput = document.getElementById("file-input");
 const addPdfsBtn = document.getElementById("add-pdfs-btn");
+const importModal = document.getElementById("import-modal");
+const importCloseBtn = document.getElementById("import-close-btn");
+const importCancelBtn = document.getElementById("import-cancel-btn");
+const importChooseBtn = document.getElementById("import-choose-btn");
+const dropOverlay = document.getElementById("drop-overlay");
 const undoBtn = document.getElementById("undo-btn");
 const deleteSelectedBtn = document.getElementById("delete-selected-btn");
 const deleteLastPagesBtn = document.getElementById("delete-last-pages-btn");
@@ -118,7 +123,13 @@ function undo() {
 /* Event wiring                                                        */
 /* ------------------------------------------------------------------ */
 
-addPdfsBtn.addEventListener("click", openFilePicker);
+addPdfsBtn.addEventListener("click", openImportModal);
+importCloseBtn.addEventListener("click", closeImportModal);
+importCancelBtn.addEventListener("click", closeImportModal);
+importChooseBtn.addEventListener("click", openFilePicker);
+importModal.addEventListener("mousedown", (e) => {
+  if (e.target === importModal) closeImportModal();
+});
 document.getElementById("upload-box").addEventListener("click", openFilePicker);
 fileInput.addEventListener("change", handleFileSelect);
 undoBtn.addEventListener("click", undo);
@@ -196,6 +207,13 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !exportModal.classList.contains("hidden")) closeExportModal();
 });
 
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!importModal.classList.contains("hidden")) closeImportModal();
+  fileDragDepth = 0;
+  dropOverlay.classList.add("hidden");
+});
+
 // Ctrl/Cmd+Z undoes the last structural change (not while typing or in a dialog).
 document.addEventListener("keydown", (e) => {
   if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== "z") return;
@@ -265,26 +283,51 @@ previewModal.addEventListener("wheel", (e) => {
   zoomStep(e.deltaY < 0 ? 1 : -1);
 }, { passive: false });
 
-uploadZone.addEventListener("dragover", (e) => {
+// Dropping PDFs anywhere on the page imports them. Only drags that carry files count, so
+// reordering pages and rows (which uses plain text drags) is unaffected.
+const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
+let fileDragDepth = 0;
+
+document.addEventListener("dragenter", (e) => {
+  if (!hasFiles(e)) return;
   e.preventDefault();
-  uploadZone.classList.add("drag-over");
+  fileDragDepth++;
+  dropOverlay.classList.remove("hidden");
 });
 
-uploadZone.addEventListener("dragleave", (e) => {
-  if (e.relatedTarget && uploadZone.contains(e.relatedTarget)) return;
-  uploadZone.classList.remove("drag-over");
+document.addEventListener("dragover", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
 });
 
-uploadZone.addEventListener("drop", (e) => {
+document.addEventListener("dragleave", (e) => {
+  if (!hasFiles(e)) return;
+  fileDragDepth = Math.max(0, fileDragDepth - 1);
+  if (fileDragDepth === 0) dropOverlay.classList.add("hidden");
+});
+
+document.addEventListener("drop", (e) => {
+  if (!hasFiles(e)) return;
   e.preventDefault();
-  uploadZone.classList.remove("drag-over");
-  const files = Array.from(e.dataTransfer.files);
-  processFiles(files);
+  fileDragDepth = 0;
+  dropOverlay.classList.add("hidden");
+  closeImportModal();
+  processFiles(Array.from(e.dataTransfer.files));
 });
 
 /* ------------------------------------------------------------------ */
 /* Loading files                                                       */
 /* ------------------------------------------------------------------ */
+
+function openImportModal() {
+  importModal.classList.remove("hidden");
+  importChooseBtn.focus();
+}
+
+function closeImportModal() {
+  importModal.classList.add("hidden");
+}
 
 function openFilePicker() {
   fileInput.click();
@@ -292,6 +335,7 @@ function openFilePicker() {
 
 function handleFileSelect(e) {
   const files = Array.from(e.target.files);
+  closeImportModal();
   processFiles(files);
   fileInput.value = "";
 }
@@ -525,16 +569,21 @@ function createDocRow(doc) {
   header.draggable = true;
   header.innerHTML = `
     <i class="bi bi-grip-vertical text-gray-400"></i>
-    <label class="relative block w-5 h-5 cursor-pointer">
-      <input type="checkbox" class="doc-checkbox sr-only">
-      <span class="circle-check">
-        <i class="i-check bi bi-check-lg"></i>
-        <i class="i-dash bi bi-dash-lg"></i>
-      </span>
-    </label>
-
-    <span class="doc-name font-display text-sm font-semibold text-gray-800 truncate"></span>
+    <span class="doc-name font-display text-sm font-semibold text-gray-800 truncate min-w-0"></span>
     <span class="doc-count text-xs text-gray-400 tabular-nums whitespace-nowrap"></span>
+    <div class="ml-auto flex items-center gap-2 shrink-0">
+      <button type="button" title="Delete all pages of this document" aria-label="Delete document"
+        class="doc-delete-btn w-8 h-8 rounded-full text-gray-500 hover:bg-gray-100 hover:text-red-600 flex items-center justify-center transition-colors">
+        <i class="bi bi-trash"></i>
+      </button>
+      <label class="relative block w-5 h-5 cursor-pointer" title="Select all pages of this document">
+        <input type="checkbox" class="doc-checkbox sr-only">
+        <span class="circle-check">
+          <i class="i-check bi bi-check-lg"></i>
+          <i class="i-dash bi bi-dash-lg"></i>
+        </span>
+      </label>
+    </div>
   `;
 
   const strip = document.createElement("div");
@@ -543,6 +592,12 @@ function createDocRow(doc) {
   strip.className = "doc-strip flex gap-4 overflow-x-auto -mx-1 px-1 pt-1 pb-2";
 
   row.append(header, strip);
+
+  header.querySelector(".doc-delete-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    pushUndo();
+    removePages([...doc.pages]);
+  });
 
   header.querySelector(".doc-checkbox").addEventListener("change", (e) => {
     e.stopPropagation();
@@ -1079,8 +1134,7 @@ function openExportModal() {
   const docCount = selectedDocs().length;
 
   exportModalTitle.textContent = rows ? "Export: Row View" : "Export: Grid View";
-  exportSwitchView.textContent = "Switch";
-  exportSwitchView.title = rows ? "Switch to Grid View" : "Switch to Row View";
+  exportSwitchView.textContent = rows ? "Switch to grid view" : "Switch to row view";
   exportCount.textContent = rows ? plural(docCount, "document") : plural(count, "page");
 
   for (const [id, text] of Object.entries(EXPORT_COPY)) {
