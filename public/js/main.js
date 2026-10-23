@@ -569,21 +569,19 @@ function createDocRow(doc) {
   header.draggable = true;
   header.innerHTML = `
     <i class="bi bi-grip-vertical text-gray-400"></i>
+    <label class="relative block w-5 h-5 shrink-0 cursor-pointer" title="Select all pages of this document">
+      <input type="checkbox" class="doc-checkbox sr-only">
+      <span class="circle-check">
+        <i class="i-check bi bi-check-lg"></i>
+        <i class="i-dash bi bi-dash-lg"></i>
+      </span>
+    </label>
+    <button type="button" title="Delete all pages of this document" aria-label="Delete document"
+      class="doc-delete-btn w-8 h-8 shrink-0 rounded-full text-gray-500 hover:bg-gray-100 hover:text-red-600 flex items-center justify-center transition-colors">
+      <i class="bi bi-trash"></i>
+    </button>
     <span class="doc-name font-display text-sm font-semibold text-gray-800 truncate min-w-0"></span>
     <span class="doc-count text-xs text-gray-400 tabular-nums whitespace-nowrap"></span>
-    <div class="ml-auto flex items-center gap-2 shrink-0">
-      <button type="button" title="Delete all pages of this document" aria-label="Delete document"
-        class="doc-delete-btn w-8 h-8 rounded-full text-gray-500 hover:bg-gray-100 hover:text-red-600 flex items-center justify-center transition-colors">
-        <i class="bi bi-trash"></i>
-      </button>
-      <label class="relative block w-5 h-5 cursor-pointer" title="Select all pages of this document">
-        <input type="checkbox" class="doc-checkbox sr-only">
-        <span class="circle-check">
-          <i class="i-check bi bi-check-lg"></i>
-          <i class="i-dash bi bi-dash-lg"></i>
-        </span>
-      </label>
-    </div>
   `;
 
   const strip = document.createElement("div");
