@@ -414,6 +414,38 @@ input:checked ~ .radio-row-check {
   opacity: 0.65;
 }
 
+/* Reserve the scrollbar's space even when it isn't needed. Otherwise the grid is wider
+   (and every card larger) whenever the content is short enough not to scroll, e.g. file view. */
+#main-content {
+  scrollbar-gutter: stable;
+}
+
+/* Fixed-size thumbnail slot: every card has the same height whatever the page's
+   aspect ratio, so switching between page view and file view doesn't reflow. */
+.thumb-box {
+  position: relative;
+  aspect-ratio: 3 / 4;
+}
+
+.thumb-wrapper {
+  position: absolute;
+  inset: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-wrapper canvas {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+.page-number-badge {
+  min-height: 1.625rem;
+}
+
 .drop-indicator {
   position: absolute;
   width: 4px;

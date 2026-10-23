@@ -369,8 +369,7 @@ async function addPageToGrid(pageObj) {
   `;
 
   const canvasContainer = document.createElement("div");
-  canvasContainer.className = "p-2 flex items-center justify-center rounded-xl cursor-pointer";
-  canvasContainer.style.minHeight = "120px";
+  canvasContainer.className = "thumb-box rounded-xl cursor-pointer";
 
   canvasContainer.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -379,8 +378,6 @@ async function addPageToGrid(pageObj) {
 
   const canvasWrapper = document.createElement("div");
   canvasWrapper.className = "thumb-wrapper";
-  canvasWrapper.style.maxWidth = "100%";
-  canvasWrapper.style.height = "auto";
 
   const canvas = await renderPage(pageObj.pdfPage, pageObj.rotation);
   canvasWrapper.appendChild(canvas);
