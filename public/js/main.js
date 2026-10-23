@@ -18,7 +18,7 @@ const selectedPagesSpan = document.getElementById("selected-pages");
 const viewToggle = document.getElementById("view-toggle");
 
 viewToggle.querySelectorAll(".view-opt").forEach(b => {
-  b.setAttribute("aria-pressed", String((b.dataset.view === "files") === !!AppData.data.fileView));
+  b.setAttribute("aria-pressed", String((b.dataset.view === "files") === !!AppData.temp.fileView));
 });
 
 const exportModal = document.getElementById("export-modal");
@@ -96,8 +96,7 @@ selectAllCheckbox.addEventListener("change", handleSelectAll);
 viewToggle.addEventListener("click", (e) => {
   const btn = e.target.closest(".view-opt");
   if (!btn) return;
-  AppData.data.fileView = btn.dataset.view === "files";
-  AppData.save();
+  AppData.temp.fileView = btn.dataset.view === "files";
   viewToggle.querySelectorAll(".view-opt").forEach(b => {
     b.setAttribute("aria-pressed", String(b === btn));
   });
@@ -413,7 +412,7 @@ async function addPageToGrid(pageObj) {
 
   checkbox.addEventListener("change", (e) => {
     e.stopPropagation();
-    if (AppData.data.fileView) {
+    if (AppData.temp.fileView) {
       const page = PDFManager.getPage(pageObj.id);
       PDFManager.pagesOfFile(page.fileIndex).forEach(p => { p.selected = e.target.checked; });
       syncSelectionUI();
@@ -433,7 +432,7 @@ async function addPageToGrid(pageObj) {
   deleteBtn.addEventListener("click", (e) => {
     e.stopPropagation();
 
-    if (AppData.data.fileView) {
+    if (AppData.temp.fileView) {
       const page = PDFManager.getPage(pageObj.id);
       const filePages = PDFManager.pagesOfFile(page.fileIndex);
       const pageLabel = filePages.length === 1 ? "1 page" : `all ${plural(filePages.length, "page")}`;
@@ -525,7 +524,7 @@ function handleDrop(e) {
   if (!target) return;
 
   animateReorder(() => {
-    if (AppData.data.fileView) {
+    if (AppData.temp.fileView) {
       moveFileGroup(draggedId, plan.targetId, plan.after);
     } else {
       PDFManager.reorderPages(plan.fromIndex, plan.toIndex);
@@ -575,7 +574,7 @@ function updateDropTarget() {
   }
 
   const after = x > best.x + best.w / 2;
-  const pages = AppData.data.fileView ? representativePages() : PDFManager.getAllPages();
+  const pages = AppData.temp.fileView ? representativePages() : PDFManager.getAllPages();
   const fromIndex = pages.findIndex(p => p.id === AppData.temp.draggedPageId);
   let toIndex = pages.findIndex(p => p.id === best.id) + (after ? 1 : 0);
   if (fromIndex < toIndex) toIndex--;
@@ -668,10 +667,10 @@ function applyView() {
     const page = PDFManager.getPage(id);
     if (!page) return;
 
-    el.classList.toggle("hidden", AppData.data.fileView && !reps.has(id));
+    el.classList.toggle("hidden", AppData.temp.fileView && !reps.has(id));
 
     const badge = el.querySelector(".page-number-badge");
-    if (AppData.data.fileView) {
+    if (AppData.temp.fileView) {
       if (!el._nameEl) el._nameEl = createFileNameEl(page.fileName);
       if (badge.firstChild !== el._nameEl) badge.replaceChildren(el._nameEl);
     } else {
@@ -690,7 +689,7 @@ function syncSelectionUI() {
     if (!page) return;
 
     const cb = el.querySelector(".page-checkbox");
-    if (AppData.data.fileView) {
+    if (AppData.temp.fileView) {
       const filePages = groups.get(page.fileIndex);
       const count = filePages.filter(p => p.selected).length;
       const all = count === filePages.length;
@@ -779,7 +778,7 @@ function updateStats() {
   const total = pages.length;
   const selected = PDFManager.getSelectedPages().length;
 
-  if (AppData.data.fileView) {
+  if (AppData.temp.fileView) {
     totalPagesSpan.textContent = new Set(pages.map(p => p.fileIndex)).size;
     selectedPagesSpan.textContent = new Set(pages.filter(p => p.selected).map(p => p.fileIndex)).size;
   } else {
@@ -897,7 +896,7 @@ function openExportModal() {
   const count = PDFManager.getSelectedPages().length;
   if (count === 0) return;
 
-  const fileView = AppData.data.fileView;
+  const fileView = AppData.temp.fileView;
   const fileCount = selectedFileOrder().length;
 
   exportCount.textContent = fileView ? plural(fileCount, "file") : plural(count, "page");
@@ -937,7 +936,7 @@ function updateExportSubOptions() {
 
   const isExtract = !!mode && mode.startsWith("extract");
 
-  pairMergeOption.classList.toggle("hidden", !(AppData.data.fileView && isMerge));
+  pairMergeOption.classList.toggle("hidden", !(AppData.temp.fileView && isMerge));
   extractSubOptions.classList.toggle("hidden", !isExtract);
   extractHeader.classList.toggle("bg-gray-100", isExtract);
 
@@ -975,7 +974,7 @@ function handleExportConfirm() {
   closeExportModal();
 
   if (mode === "extract-only") {
-    if (AppData.data.fileView) handleSeparateFiles();
+    if (AppData.temp.fileView) handleSeparateFiles();
     else handleSeparatePages();
   } else if (mode === "extract-first") {
     handleExtractEdgePages("first");
@@ -983,7 +982,7 @@ function handleExportConfirm() {
     handleExtractEdgePages("last");
   } else if (mode === "extract-pages" || mode === "extract-range") {
     handleExtractSpecific();
-  } else if (AppData.data.fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
+  } else if (AppData.temp.fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
     handleMergeInPairs();
   } else {
     handleMerge();
@@ -1166,7 +1165,7 @@ function getExtractRequest() {
   const all = PDFManager.getAllPages();
   const selected = PDFManager.getSelectedPages();
 
-  if (AppData.data.fileView) {
+  if (AppData.temp.fileView) {
     const groups = [];
     const tooShort = [];
 
@@ -1385,7 +1384,7 @@ async function renderPreviewTextLayer(page, container, scale, token) {
 
 function previewScopePages(pageId = AppData.temp.currentPreviewPageId) {
   const all = PDFManager.getAllPages();
-  if (!AppData.data.fileView) return all;
+  if (!AppData.temp.fileView) return all;
   const page = PDFManager.getPage(pageId);
   return page ? PDFManager.pagesOfFile(page.fileIndex) : all;
 }

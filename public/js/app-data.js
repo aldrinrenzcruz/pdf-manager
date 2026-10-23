@@ -1,11 +1,11 @@
 const AppData = {
   key: "pdf-manager",
 
-  data: {
-    fileView: false,
-  },
+  data: {},
 
   temp: {
+    fileView: false,
+
     pages: [],
     nextId: 1,
     originalFiles: [],
