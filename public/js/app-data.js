@@ -4,8 +4,8 @@ const AppData = {
   data: {},
 
   temp: {
-    // "rows": one row per document. "flat": every page in one continuous grid.
-    viewMode: "rows",
+    // "grid": every page in one continuous grid. "rows": one row per document.
+    viewMode: "grid",
 
     // Source of truth: an ordered array of { id, name, pages: [] }.
     // Each page keeps its own source (fileIndex + originalPageNum), so a document can hold

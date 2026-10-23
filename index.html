@@ -79,13 +79,13 @@
       <div class="flex items-center justify-center gap-2">
         <div id="view-toggle" role="group" aria-label="View mode"
           class="flex items-center p-0.5 bg-gray-100 rounded-full text-sm font-medium">
-          <button type="button" data-view="rows" aria-pressed="true" title="One row per document"
+          <button type="button" data-view="grid" aria-pressed="true" title="All pages in one continuous grid"
+            class="view-opt h-7 px-3 rounded-full flex items-center gap-1.5 transition-colors">
+            <i class="bi bi-grid-3x3-gap"></i>Grid
+          </button>
+          <button type="button" data-view="rows" aria-pressed="false" title="One row per document"
             class="view-opt h-7 px-3 rounded-full flex items-center gap-1.5 transition-colors">
             <i class="bi bi-view-list"></i>Rows
-          </button>
-          <button type="button" data-view="flat" aria-pressed="false" title="All pages in one continuous grid"
-            class="view-opt h-7 px-3 rounded-full flex items-center gap-1.5 transition-colors">
-            <i class="bi bi-grid-3x3-gap"></i>Flat
           </button>
         </div>
       </div>

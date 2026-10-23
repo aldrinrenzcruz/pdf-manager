@@ -499,7 +499,7 @@ input:checked ~ .radio-row-check {
   scrollbar-width: thin;
 }
 
-/* Flat view: a thin line in the grid gap marks where a new document starts. */
+/* Grid view: a thin line in the grid gap marks where a new document starts. */
 .pdf-page.doc-start::before {
   content: "";
   position: absolute;

@@ -141,9 +141,9 @@ viewToggle.addEventListener("click", (e) => {
   setView(btn.dataset.view);
 });
 
-// Lets the export dialog flip between Row and Flat view without closing it.
+// Lets the export dialog flip between Row and Grid view without closing it.
 exportSwitchView.addEventListener("click", () => {
-  setView(isRows() ? "flat" : "rows");
+  setView(isRows() ? "grid" : "rows");
   openExportModal();
 });
 
@@ -420,10 +420,10 @@ function refreshThumbnail(pageId) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Rendering: Rows view and Flat view                                  */
+/* Rendering: Rows view and Grid view                                  */
 /* ------------------------------------------------------------------ */
 
-const FLAT_CLASSES = "grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4".split(" ");
+const GRID_CLASSES = "grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4".split(" ");
 const ROWS_CLASSES = "flex flex-col gap-6".split(" ");
 
 const dropIndicator = document.createElement("div");
@@ -559,8 +559,8 @@ function render() {
   const rows = isRows();
   const docs = PDFManager.documents;
 
-  pagesGrid.classList.remove(...FLAT_CLASSES, ...ROWS_CLASSES);
-  pagesGrid.classList.add(...(rows ? ROWS_CLASSES : FLAT_CLASSES));
+  pagesGrid.classList.remove(...GRID_CLASSES, ...ROWS_CLASSES);
+  pagesGrid.classList.add(...(rows ? ROWS_CLASSES : GRID_CLASSES));
 
   // Detaching a strip resets its scroll position, so remember it first.
   for (const doc of docs) {
@@ -568,7 +568,7 @@ function render() {
   }
 
   const nodes = [];
-  let flatNumber = 0;
+  let gridNumber = 0;
 
   docs.forEach((doc, di) => {
     const cards = doc.pages.map((page, pi) => {
@@ -577,7 +577,7 @@ function render() {
       el.classList.toggle("flex-none", rows);
       el.classList.toggle("doc-start", !rows && di > 0 && pi === 0);
       el.title = rows ? "" : doc.name;
-      el.querySelector(".page-number-badge").textContent = rows ? pi + 1 : ++flatNumber;
+      el.querySelector(".page-number-badge").textContent = rows ? pi + 1 : ++gridNumber;
       return el;
     });
 
@@ -1066,11 +1066,11 @@ async function runExport(action, fn) {
 const EXPORT_COPY = {
   "merge-desc": {
     rows: "Combine the selected pages of all documents into one PDF",
-    flat: "Combine selected pages into one PDF"
+    grid: "Combine selected pages into one PDF"
   },
   "extract-only-desc": {
     rows: "Export each selected document as its own PDF",
-    flat: "Export each selected page as its own PDF"
+    grid: "Export each selected page as its own PDF"
   }
 };
 
@@ -1081,15 +1081,15 @@ function openExportModal() {
   const rows = isRows();
   const docCount = selectedDocs().length;
 
-  exportModalTitle.textContent = rows ? "Export: Row View" : "Export: Flat View";
-  exportSwitchView.textContent = rows ? "Switch to flat view" : "Switch to row view";
+  exportModalTitle.textContent = rows ? "Export: Row View" : "Export: Grid View";
+  exportSwitchView.textContent = rows ? "Switch to grid view" : "Switch to row view";
   exportCount.textContent = rows ? plural(docCount, "document") : plural(count, "page");
 
   for (const [id, text] of Object.entries(EXPORT_COPY)) {
-    document.getElementById(id).textContent = rows ? text.rows : text.flat;
+    document.getElementById(id).textContent = rows ? text.rows : text.grid;
   }
 
-  // Extract only exists in Row view; in Flat view you just delete the pages you don't need.
+  // Extract only exists in Row view; in Grid view you just delete the pages you don't need.
   extractGroup.classList.toggle("hidden", !rows);
   if (!rows && isSplitMode(getExportMode())) {
     document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
@@ -1171,7 +1171,7 @@ async function handleMerge() {
   });
 }
 
-// Flat view: one PDF per selected page, numbered by position in the whole list.
+// Grid view: one PDF per selected page, numbered by position in the whole list.
 async function handleSeparatePages() {
   const pages = PDFManager.getSelectedPages();
   if (pages.length === 0) return;
@@ -1487,7 +1487,7 @@ async function renderPreviewTextLayer(page, container, scale, token) {
   }
 }
 
-// Row view previews step through the page's document; Flat view steps through every page.
+// Row view previews step through the page's document; Grid view steps through every page.
 function previewScopePages(pageId = AppData.temp.currentPreviewPageId) {
   const all = PDFManager.getAllPages();
   if (!isRows()) return all;
