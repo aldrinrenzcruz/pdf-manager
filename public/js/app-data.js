@@ -22,6 +22,7 @@ const AppData = {
     loadQueue: Promise.resolve(),
 
     separateAuto: false,
+    mergeForcedOff: false, // Split was auto-selected because there was nothing to merge
     extractError: null,
 
     // Annotation tools in the preview: tool is null | "draw" | "text" | "erase"; annotSize indexes

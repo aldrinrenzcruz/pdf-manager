@@ -1155,6 +1155,25 @@ function openExportModal() {
     document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
   }
 
+  // With a single document (Row view) or page (Grid view) there is nothing to merge, so Merge is
+  // disabled and Split is picked instead. If that switch was automatic, Merge comes back
+  // (and is re-selected) as soon as there is something to merge again.
+  const mergeRadio = document.querySelector('input[name="exportMode"][value="merge"]');
+  const mergeRow = mergeRadio.closest(".radio-row");
+  const nothingToMerge = (rows ? docCount : count) === 1;
+
+  mergeRadio.disabled = nothingToMerge;
+  mergeRow.classList.toggle("opacity-40", nothingToMerge);
+  mergeRow.style.cursor = nothingToMerge ? "not-allowed" : "";
+
+  if (nothingToMerge && getExportMode() === "merge") {
+    document.querySelector('input[name="exportMode"][value="extract-only"]').checked = true;
+    AppData.temp.mergeForcedOff = true;
+  } else if (!nothingToMerge && AppData.temp.mergeForcedOff) {
+    if (getExportMode() === "extract-only") mergeRadio.checked = true;
+    AppData.temp.mergeForcedOff = false;
+  }
+
   updateExportSubOptions();
 
   exportModal.classList.remove("hidden");
