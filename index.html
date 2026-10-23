@@ -57,26 +57,9 @@
       </div>
     </header>
 
-    <div id="select-all-container"
-      class="hidden grid grid-cols-[1fr_auto_1fr] items-center gap-3 bg-white border-b border-gray-200 px-4 py-1">
-      <div class="flex items-center gap-2">
-        <label title="Select all pages"
-          class="flex items-center gap-2.5 h-8 pl-2 pr-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-          <input type="checkbox" id="select-all-checkbox" class="peer sr-only">
-          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
-                       peer-checked:bg-gray-900 peer-checked:border-gray-900
-                       peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
-                       peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
-                       peer-checked:[&>.i-check]:opacity-100 peer-indeterminate:[&>.i-dash]:opacity-100">
-            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
-            <i class="i-dash bi bi-dash-lg absolute opacity-0 transition-opacity"></i>
-          </span>
-          <span class="text-sm font-medium text-gray-700 whitespace-nowrap">Select all</span>
-          <span class="text-sm text-gray-400 tabular-nums whitespace-nowrap"><span id="selected-pages">0</span> of <span id="total-pages">0</span> selected</span>
-        </label>
-      </div>
-
-      <div class="flex items-center justify-center gap-2">
+    <div id="toolbar" role="toolbar" aria-label="Page tools"
+      class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 bg-white border-b border-gray-200 px-4 py-1">
+      <div class="flex items-center justify-start gap-2">
         <button id="delete-selected-btn" disabled title="Delete selected pages"
           class="text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent h-8 px-3 text-sm rounded-lg font-medium flex items-center justify-center gap-1.5">
           <i class="bi bi-trash"></i>
@@ -89,7 +72,7 @@
         </button>
       </div>
 
-      <div class="flex items-center justify-end gap-2">
+      <div class="flex items-center justify-center gap-2">
         <div id="view-toggle" role="group" aria-label="View mode"
           class="flex items-center p-0.5 bg-gray-100 rounded-full text-sm font-medium">
           <button type="button" data-view="pages" aria-pressed="true" title="Show every page"
@@ -101,6 +84,23 @@
             <i class="bi bi-files"></i>Files
           </button>
         </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2">
+        <label title="Select all pages"
+          class="flex items-center gap-2.5 h-8 pl-2 pr-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors has-[:disabled]:opacity-40 has-[:disabled]:cursor-not-allowed has-[:disabled]:hover:bg-transparent">
+          <input type="checkbox" id="select-all-checkbox" disabled class="peer sr-only">
+          <span class="relative w-5 h-5 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-white text-xs transition-colors
+                       peer-checked:bg-gray-900 peer-checked:border-gray-900
+                       peer-indeterminate:bg-gray-900 peer-indeterminate:border-gray-900
+                       peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2
+                       peer-checked:[&>.i-check]:opacity-100 peer-indeterminate:[&>.i-dash]:opacity-100">
+            <i class="i-check bi bi-check-lg absolute opacity-0 transition-opacity"></i>
+            <i class="i-dash bi bi-dash-lg absolute opacity-0 transition-opacity"></i>
+          </span>
+          <span class="text-sm font-medium text-gray-700 whitespace-nowrap">Select all</span>
+          <span class="text-sm text-gray-400 tabular-nums whitespace-nowrap"><span id="selected-pages">0</span> of <span id="total-pages">0</span> selected</span>
+        </label>
       </div>
     </div>
 

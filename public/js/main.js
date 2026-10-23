@@ -10,7 +10,6 @@ const addPdfsBtn = document.getElementById("add-pdfs-btn");
 const deleteSelectedBtn = document.getElementById("delete-selected-btn");
 const deleteLastPagesBtn = document.getElementById("delete-last-pages-btn");
 const selectAllCheckbox = document.getElementById("select-all-checkbox");
-const selectAllContainer = document.getElementById("select-all-container");
 const exportBtn = document.getElementById("export-btn");
 const outputFilename = document.getElementById("output-filename");
 const totalPagesSpan = document.getElementById("total-pages");
@@ -244,7 +243,6 @@ async function processFilesNow(files) {
 
   uploadZone.classList.add("hidden");
   pagesGrid.classList.remove("hidden");
-  selectAllContainer.classList.remove("hidden");
 
   AppData.temp.busy = true;
   updateStats();
@@ -771,6 +769,7 @@ function updateStats() {
   }
   selectAllCheckbox.checked = total > 0 && selected === total;
   selectAllCheckbox.indeterminate = selected > 0 && selected < total;
+  selectAllCheckbox.disabled = total === 0;
 
   exportBtn.disabled = AppData.temp.busy || selected === 0;
   exportConfirmBtn.disabled = AppData.temp.busy || selected === 0 || !!AppData.temp.extractError;
