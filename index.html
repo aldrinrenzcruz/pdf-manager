@@ -58,26 +58,34 @@
     <div id="toolbar" role="toolbar" aria-label="Page tools"
       class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 bg-white border-b border-gray-200 px-4 py-1">
       <div class="flex items-center justify-start gap-2">
+        <button id="undo-btn" disabled title="Undo (Ctrl/Cmd+Z)" class="toolbar-btn">
+          <i class="bi bi-arrow-counterclockwise"></i>
+          Undo
+        </button>
         <button id="delete-selected-btn" disabled title="Delete selected pages" class="toolbar-btn">
           <i class="bi bi-trash"></i>
           Delete
         </button>
-        <button id="delete-last-pages-btn" disabled title="Delete the last page of each selected file" class="toolbar-btn">
+        <button id="delete-last-pages-btn" disabled title="Delete the last page of each selected document" class="toolbar-btn">
           <i class="bi bi-file-earmark-minus"></i>
           Delete last pages
+        </button>
+        <button id="pair-up-btn" disabled title="Pair up the selected documents" class="toolbar-btn">
+          <i class="bi bi-union"></i>
+          Pair up
         </button>
       </div>
 
       <div class="flex items-center justify-center gap-2">
         <div id="view-toggle" role="group" aria-label="View mode"
           class="flex items-center p-0.5 bg-gray-100 rounded-full text-sm font-medium">
-          <button type="button" data-view="pages" aria-pressed="true" title="Show every page"
+          <button type="button" data-view="rows" aria-pressed="true" title="One row per document"
             class="view-opt h-7 px-3 rounded-full flex items-center gap-1.5 transition-colors">
-            <i class="bi bi-file-earmark-text"></i>Pages
+            <i class="bi bi-view-list"></i>Rows
           </button>
-          <button type="button" data-view="files" aria-pressed="false" title="Show one card per PDF file"
+          <button type="button" data-view="flat" aria-pressed="false" title="All pages in one continuous grid"
             class="view-opt h-7 px-3 rounded-full flex items-center gap-1.5 transition-colors">
-            <i class="bi bi-files"></i>Files
+            <i class="bi bi-grid-3x3-gap"></i>Flat
           </button>
         </div>
       </div>
@@ -146,18 +154,7 @@
           <i class="bi bi-check-lg radio-row-check"></i>
         </label>
 
-        <label id="pair-merge-option" class="hidden flex items-center gap-3 w-fit ml-16 mb-1 py-1.5 pl-2 pr-4 rounded-full cursor-pointer hover:bg-gray-100 transition-colors">
-          <input type="checkbox" id="pair-merge-checkbox" class="sr-only">
-          <span class="circle-check">
-            <i class="i-check bi bi-check-lg"></i>
-          </span>
-          <span class="text-sm text-gray-700">
-            <span class="font-medium">Merge in pairs</span>
-            <span class="block text-gray-500">Split the files into two equal halves, then merge them in matching order: the first file of each half, then the second of each half, and so on</span>
-          </span>
-        </label>
-
-        <label class="radio-row">
+                <label class="radio-row">
           <input type="radio" name="exportMode" value="extract-only" class="sr-only">
           <div class="radio-row-body">
             <i class="bi bi-scissors text-2xl"></i>
@@ -169,33 +166,34 @@
           <i class="bi bi-check-lg radio-row-check"></i>
         </label>
 
+        <div id="extract-group" class="space-y-2">
         <div id="extract-header" role="button" tabindex="0" class="radio-row-body cursor-pointer">
           <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
           <div>
             <div class="radio-row-title">Extract</div>
-            <div class="radio-row-desc">Export pages or files without merging them</div>
+            <div class="radio-row-desc">Export pages of each document without merging them</div>
           </div>
         </div>
 
         <div id="extract-sub-options" class="hidden space-y-2">
 
-          <label id="extract-first-option" class="hidden radio-row radio-row-sub">
+          <label id="extract-first-option" class="radio-row radio-row-sub">
             <input type="radio" name="exportMode" value="extract-first" class="sr-only">
             <div class="radio-row-body">
               <div>
                 <div class="radio-row-title">Extract first pages</div>
-                <div class="radio-row-desc">Export the first page of each selected file</div>
+                <div class="radio-row-desc">Export the first page of each selected document</div>
               </div>
             </div>
             <i class="bi bi-check-lg radio-row-check"></i>
           </label>
 
-          <label id="extract-last-option" class="hidden radio-row radio-row-sub">
+          <label id="extract-last-option" class="radio-row radio-row-sub">
             <input type="radio" name="exportMode" value="extract-last" class="sr-only">
             <div class="radio-row-body">
               <div>
                 <div class="radio-row-title">Extract last pages</div>
-                <div class="radio-row-desc">Export the last page of each selected file</div>
+                <div class="radio-row-desc">Export the last page of each selected document</div>
               </div>
             </div>
             <i class="bi bi-check-lg radio-row-check"></i>
@@ -206,7 +204,7 @@
             <div class="radio-row-body">
               <div>
                 <div class="radio-row-title">Extract specific pages</div>
-                <div id="extract-pages-desc" class="radio-row-desc">Export only the page numbers you enter</div>
+                <div id="extract-pages-desc" class="radio-row-desc">Export the same page numbers from each selected document</div>
               </div>
             </div>
             <i class="bi bi-check-lg radio-row-check"></i>
@@ -226,7 +224,7 @@
             <div class="radio-row-body">
               <div>
                 <div class="radio-row-title">Extract page range</div>
-                <div id="extract-range-desc" class="radio-row-desc">Export every page from one number to another</div>
+                <div id="extract-range-desc" class="radio-row-desc">Export the same page range from each selected document</div>
               </div>
             </div>
             <i class="bi bi-check-lg radio-row-check"></i>
@@ -245,6 +243,7 @@
               <span class="warning-text"></span>
             </p>
           </div>
+        </div>
         </div>
       </div>
 

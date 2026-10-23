@@ -4,11 +4,19 @@ const AppData = {
   data: {},
 
   temp: {
-    fileView: false,
+    // "rows": one row per document. "flat": every page in one continuous grid.
+    viewMode: "rows",
 
-    pages: [],
+    // Source of truth: an ordered array of { id, name, pages: [] }.
+    // Each page keeps its own source (fileIndex + originalPageNum), so a document can hold
+    // pages that come from different source PDFs (e.g. after Pair up).
+    documents: [],
     nextId: 1,
+    nextDocId: 1,
+    pageStore: new Map(), // every page ever created, by id (deleted pages stay so undo can bring them back)
     originalFiles: [],
+
+    undoStack: [],
 
     busy: false,
     loadQueue: Promise.resolve(),
@@ -25,8 +33,7 @@ const AppData = {
     sourceUrls: new Map(),
 
     draggedPageId: null,
-    dragCache: [],
-    dragGap: 16,
+    draggedDocId: null,
     dragPlan: null,
     dragPointer: { x: 0, y: 0 },
     autoScrollRaf: null,

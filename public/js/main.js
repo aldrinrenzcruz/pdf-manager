@@ -7,8 +7,10 @@ const uploadZone = document.getElementById("upload-zone");
 const pagesGrid = document.getElementById("pages-grid");
 const fileInput = document.getElementById("file-input");
 const addPdfsBtn = document.getElementById("add-pdfs-btn");
+const undoBtn = document.getElementById("undo-btn");
 const deleteSelectedBtn = document.getElementById("delete-selected-btn");
 const deleteLastPagesBtn = document.getElementById("delete-last-pages-btn");
+const pairUpBtn = document.getElementById("pair-up-btn");
 const selectAllCheckbox = document.getElementById("select-all-checkbox");
 const exportBtn = document.getElementById("export-btn");
 const outputFilename = document.getElementById("output-filename");
@@ -17,17 +19,14 @@ const selectedPagesSpan = document.getElementById("selected-pages");
 
 const viewToggle = document.getElementById("view-toggle");
 
-viewToggle.querySelectorAll(".view-opt").forEach(b => {
-  b.setAttribute("aria-pressed", String((b.dataset.view === "files") === !!AppData.temp.fileView));
-});
-
 const exportModal = document.getElementById("export-modal");
+const exportModalTitle = document.getElementById("export-modal-title");
+const exportSwitchView = document.getElementById("export-switch-view");
 const exportCount = document.getElementById("export-count");
 const exportCloseBtn = document.getElementById("export-close-btn");
 const exportCancelBtn = document.getElementById("export-cancel-btn");
 const exportConfirmBtn = document.getElementById("export-confirm-btn");
-const pairMergeOption = document.getElementById("pair-merge-option");
-const pairMergeCheckbox = document.getElementById("pair-merge-checkbox");
+const extractGroup = document.getElementById("extract-group");
 const extractHeader = document.getElementById("extract-header");
 const extractSubOptions = document.getElementById("extract-sub-options");
 const separateOption = document.getElementById("separate-option");
@@ -60,18 +59,23 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 6;
 const ZOOM_STEP = 1.25;
 const MAX_CANVAS_PIXELS = 16000000;
+const MAX_UNDO = 20;
+const DRAG_GAP = 16;
 
 /* ------------------------------------------------------------------ */
 /* Small shared helpers                                                */
 /* ------------------------------------------------------------------ */
 
 const getExportMode = () => document.querySelector('input[name="exportMode"]:checked')?.value;
-const getCard = id => pagesGrid.querySelector(`[data-page-id="${id}"]`);
 const currentPreviewPage = () => PDFManager.getPage(AppData.temp.currentPreviewPageId);
 const plural = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+const isRows = () => AppData.temp.viewMode === "rows";
+
+// Modes shown under "Extract": every "extract-*" mode except the standalone "extract-only" (the Split row).
+const isSplitMode = mode => !!mode && mode.startsWith("extract-") && mode !== "extract-only";
 
 function refresh() {
-  applyView();
+  render();
   updateStats();
 }
 
@@ -82,6 +86,34 @@ function setOptionDisabled(el, disabled, { hover = false } = {}) {
   if (hover) el.classList.toggle("hover:bg-gray-100", !disabled);
 }
 
+// Documents that have at least one selected page.
+const selectedDocs = () => PDFManager.documents.filter(d => d.pages.some(p => p.selected));
+
+/* ------------------------------------------------------------------ */
+/* Undo                                                                */
+/* ------------------------------------------------------------------ */
+
+// Call right before any change to the document structure, order or rotation.
+function pushUndo() {
+  AppData.temp.undoStack.push(PDFManager.snapshot());
+  if (AppData.temp.undoStack.length > MAX_UNDO) AppData.temp.undoStack.shift();
+  updateStats();
+}
+
+function undo() {
+  const snap = AppData.temp.undoStack.pop();
+  if (!snap) return;
+
+  PDFManager.restore(snap);
+
+  // Pages whose rotation was restored need a fresh thumbnail.
+  for (const page of AppData.temp.pageStore.values()) {
+    if (page.thumbRotation !== undefined && page.thumbRotation !== page.rotation) queueThumb(page);
+  }
+
+  refresh();
+}
+
 /* ------------------------------------------------------------------ */
 /* Event wiring                                                        */
 /* ------------------------------------------------------------------ */
@@ -89,14 +121,16 @@ function setOptionDisabled(el, disabled, { hover = false } = {}) {
 addPdfsBtn.addEventListener("click", openFilePicker);
 document.getElementById("upload-box").addEventListener("click", openFilePicker);
 fileInput.addEventListener("change", handleFileSelect);
+undoBtn.addEventListener("click", undo);
 deleteSelectedBtn.addEventListener("click", handleDeleteSelected);
 deleteLastPagesBtn.addEventListener("click", handleDeleteLastPages);
+pairUpBtn.addEventListener("click", handlePairUp);
 selectAllCheckbox.addEventListener("change", handleSelectAll);
 
-function setView(fileView) {
-  AppData.temp.fileView = fileView;
+function setView(mode) {
+  AppData.temp.viewMode = mode;
   viewToggle.querySelectorAll(".view-opt").forEach(b => {
-    b.setAttribute("aria-pressed", String((b.dataset.view === "files") === fileView));
+    b.setAttribute("aria-pressed", String(b.dataset.view === mode));
   });
   refresh();
 }
@@ -104,12 +138,12 @@ function setView(fileView) {
 viewToggle.addEventListener("click", (e) => {
   const btn = e.target.closest(".view-opt");
   if (!btn) return;
-  setView(btn.dataset.view === "files");
+  setView(btn.dataset.view);
 });
 
-// Lets the export dialog flip between Pages and Files without closing it.
-document.getElementById("export-switch-view").addEventListener("click", () => {
-  setView(!AppData.temp.fileView);
+// Lets the export dialog flip between Row and Flat view without closing it.
+exportSwitchView.addEventListener("click", () => {
+  setView(isRows() ? "flat" : "rows");
   openExportModal();
 });
 
@@ -142,13 +176,9 @@ extractPagesInput.addEventListener("input", () => {
   })
 );
 
-// Sub-option modes under Extract: every "extract-*" mode except the standalone "extract-only" (the Split row).
-const isSplitMode = mode => !!mode && mode.startsWith("extract-") && mode !== "extract-only";
-
 function selectExtract() {
   if (isSplitMode(getExportMode())) return;
-  const value = AppData.temp.fileView ? "extract-first" : "extract-pages";
-  document.querySelector(`input[name="exportMode"][value="${value}"]`).checked = true;
+  document.querySelector('input[name="exportMode"][value="extract-first"]').checked = true;
   updateExportSubOptions();
 }
 extractHeader.addEventListener("click", selectExtract);
@@ -164,6 +194,16 @@ exportModal.addEventListener("mousedown", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !exportModal.classList.contains("hidden")) closeExportModal();
+});
+
+// Ctrl/Cmd+Z undoes the last structural change (not while typing or in a dialog).
+document.addEventListener("keydown", (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== "z") return;
+  if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if (!exportModal.classList.contains("hidden") || !previewModal.classList.contains("hidden")) return;
+  if (AppData.temp.busy) return;
+  e.preventDefault();
+  undo();
 });
 
 closeModal.addEventListener("click", closePreviewModal);
@@ -298,6 +338,8 @@ async function processFilesNow(files) {
 }
 
 async function loadPDF(file, fileIndex) {
+  const doc = PDFManager.addDocument(file.name);
+
   try {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -305,24 +347,29 @@ async function loadPDF(file, fileIndex) {
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
 
-      const pageObj = PDFManager.addPage({
+      PDFManager.addPage(doc, {
         pdfPage: page,
         originalPageNum: pageNum,
         rotation: 0,
         fileName: file.name,
         fileIndex
       });
-      await addPageToGrid(pageObj);
-      updateStats();
+
+      // Show pages as they arrive; thumbnails render lazily once a card is near the viewport.
+      if (pageNum === 1 || pageNum % 25 === 0) refresh();
     }
+
+    refresh();
   } catch (error) {
     console.error(`Error loading PDF "${file.name}":`, error);
+    if (doc.pages.length === 0) PDFManager.documents = PDFManager.documents.filter(d => d !== doc);
+    refresh();
     throw error;
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* Page grid                                                           */
+/* Thumbnails                                                          */
 /* ------------------------------------------------------------------ */
 
 async function renderPage(pdfPage, rotation) {
@@ -345,24 +392,50 @@ async function renderPage(pdfPage, rotation) {
   return canvas;
 }
 
-// Re-renders a card's thumbnail (e.g. after a rotation) and swaps the canvas in place.
-async function refreshThumbnail(pageId) {
-  const page = PDFManager.getPage(pageId);
-  const wrapper = getCard(pageId)?.querySelector(".thumb-wrapper");
-  if (!page || !wrapper) return;
+// Thumbnails render one at a time, and only when their card is (nearly) on screen.
+let thumbChain = Promise.resolve();
 
-  const canvas = await renderPage(page.pdfPage, page.rotation);
-  wrapper.replaceChildren(canvas);
+function queueThumb(page) {
+  thumbChain = thumbChain.then(async () => {
+    if (!page.el || page.thumbRotation === page.rotation) return;
+
+    const rotation = page.rotation;
+    const canvas = await renderPage(page.pdfPage, rotation);
+    page.thumbRotation = rotation;
+    page.el.querySelector(".thumb-wrapper").replaceChildren(canvas);
+  }).catch(error => console.error("Thumbnail failed:", error));
 }
 
-async function addPageToGrid(pageObj) {
+const thumbObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    const page = AppData.temp.pageStore.get(Number(entry.target.dataset.pageId));
+    if (page) queueThumb(page);
+  }
+}, { root: mainContent, rootMargin: "400px 400px" });
+
+function refreshThumbnail(pageId) {
+  const page = AppData.temp.pageStore.get(pageId);
+  if (page) queueThumb(page);
+}
+
+/* ------------------------------------------------------------------ */
+/* Rendering: Rows view and Flat view                                  */
+/* ------------------------------------------------------------------ */
+
+const FLAT_CLASSES = "grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4".split(" ");
+const ROWS_CLASSES = "flex flex-col gap-6".split(" ");
+
+const dropIndicator = document.createElement("div");
+dropIndicator.className = "drop-indicator";
+
+// Cards and document rows are created once and re-used, so re-rendering after a move is cheap
+// and keeps thumbnails and each row's horizontal scroll position.
+function createCard(page) {
   const pageDiv = document.createElement("div");
   pageDiv.className = "pdf-page group relative rounded-none bg-gray-100 hover:bg-gray-200/70 p-1.5 cursor-grab active:cursor-grabbing";
-  pageDiv.dataset.pageId = pageObj.id;
+  pageDiv.dataset.pageId = page.id;
   pageDiv.draggable = true;
-  pageDiv.classList.toggle("selected", pageObj.selected);
-
-  const currentIndex = PDFManager.pages.findIndex(p => p.id === pageObj.id);
 
   const container = document.createElement("div");
   container.className = "relative";
@@ -371,7 +444,7 @@ async function addPageToGrid(pageObj) {
   checkboxContainer.className = "absolute top-3 right-3 z-10";
   checkboxContainer.innerHTML = `
     <label class="relative block w-6 h-6 cursor-pointer">
-      <input type="checkbox" class="page-checkbox sr-only" ${pageObj.selected ? "checked" : ""}>
+      <input type="checkbox" class="page-checkbox sr-only" ${page.selected ? "checked" : ""}>
       <span class="circle-check circle-check-lg">
         <i class="i-check bi bi-check-lg"></i>
         <i class="i-dash bi bi-dash-lg"></i>
@@ -381,17 +454,14 @@ async function addPageToGrid(pageObj) {
 
   const canvasContainer = document.createElement("div");
   canvasContainer.className = "thumb-box rounded-xl cursor-pointer";
-
+  canvasContainer.dataset.pageId = page.id;
   canvasContainer.addEventListener("click", (e) => {
     e.stopPropagation();
-    openPreviewModal(pageObj.id);
+    openPreviewModal(page.id);
   });
 
   const canvasWrapper = document.createElement("div");
   canvasWrapper.className = "thumb-wrapper";
-
-  const canvas = await renderPage(pageObj.pdfPage, pageObj.rotation);
-  canvasWrapper.appendChild(canvas);
   canvasContainer.appendChild(canvasWrapper);
 
   const bottomControls = document.createElement("div");
@@ -413,60 +483,150 @@ async function addPageToGrid(pageObj) {
 
   const pageNumberBadge = document.createElement("div");
   pageNumberBadge.className = "page-number-badge pt-1 pb-1.5 text-center text-xs font-medium text-gray-500 tabular-nums";
-  pageNumberBadge.textContent = currentIndex + 1;
 
   pageDiv.appendChild(container);
   pageDiv.appendChild(pageNumberBadge);
 
-  const checkbox = pageDiv.querySelector(".page-checkbox");
-  const rotateBtn = pageDiv.querySelector(".rotate-btn");
-  const deleteBtn = pageDiv.querySelector(".delete-btn");
-
-  checkbox.addEventListener("change", (e) => {
+  pageDiv.querySelector(".page-checkbox").addEventListener("change", (e) => {
     e.stopPropagation();
-    if (AppData.temp.fileView) {
-      const page = PDFManager.getPage(pageObj.id);
-      PDFManager.pagesOfFile(page.fileIndex).forEach(p => { p.selected = e.target.checked; });
-      syncSelectionUI();
-    } else {
-      PDFManager.toggleSelection(pageObj.id);
-      pageDiv.classList.toggle("selected", PDFManager.getPage(pageObj.id).selected);
-    }
+    page.selected = e.target.checked;
+    syncSelectionUI();
     updateStats();
   });
 
-  rotateBtn.addEventListener("click", async (e) => {
+  pageDiv.querySelector(".rotate-btn").addEventListener("click", (e) => {
     e.stopPropagation();
-    PDFManager.rotatePage(pageObj.id, 90);
-    await refreshThumbnail(pageObj.id);
+    pushUndo();
+    PDFManager.rotatePage(page.id, 90);
+    refreshThumbnail(page.id);
   });
 
-  deleteBtn.addEventListener("click", (e) => {
+  pageDiv.querySelector(".delete-btn").addEventListener("click", (e) => {
     e.stopPropagation();
+    pushUndo();
+    removePages([page]);
+  });
 
-    if (AppData.temp.fileView) {
-      const page = PDFManager.getPage(pageObj.id);
-      const filePages = PDFManager.pagesOfFile(page.fileIndex);
-      const pageLabel = filePages.length === 1 ? "1 page" : `all ${plural(filePages.length, "page")}`;
-      if (!confirm(`Delete ${pageLabel} of "${page.fileName}"?`)) return;
-      removePages(filePages);
+  pageDiv.addEventListener("dragstart", handlePageDragStart);
+  pageDiv.addEventListener("dragend", finishDrag);
+
+  page.el = pageDiv;
+  thumbObserver.observe(canvasContainer);
+  return pageDiv;
+}
+
+function createDocRow(doc) {
+  const row = document.createElement("section");
+  row.className = "doc-row";
+  row.dataset.docId = doc.id;
+
+  const header = document.createElement("div");
+  header.className = "doc-header flex items-center gap-3 mb-2 cursor-grab";
+  header.draggable = true;
+  header.innerHTML = `
+    <label class="relative block w-5 h-5 cursor-pointer">
+      <input type="checkbox" class="doc-checkbox sr-only">
+      <span class="circle-check">
+        <i class="i-check bi bi-check-lg"></i>
+        <i class="i-dash bi bi-dash-lg"></i>
+      </span>
+    </label>
+    <i class="bi bi-grip-vertical text-gray-400"></i>
+    <span class="doc-name font-display text-sm font-semibold text-gray-800 truncate"></span>
+    <span class="doc-count text-xs text-gray-400 tabular-nums whitespace-nowrap"></span>
+  `;
+
+  const strip = document.createElement("div");
+  strip.className = "doc-strip flex gap-4 overflow-x-auto pb-2";
+
+  row.append(header, strip);
+
+  header.querySelector(".doc-checkbox").addEventListener("change", (e) => {
+    e.stopPropagation();
+    PDFManager.setDocSelected(doc, e.target.checked);
+    syncSelectionUI();
+    updateStats();
+  });
+
+  header.addEventListener("dragstart", handleDocDragStart);
+  header.addEventListener("dragend", finishDrag);
+
+  doc.row = row;
+  return row;
+}
+
+function render() {
+  const rows = isRows();
+  const docs = PDFManager.documents;
+
+  pagesGrid.classList.remove(...FLAT_CLASSES, ...ROWS_CLASSES);
+  pagesGrid.classList.add(...(rows ? ROWS_CLASSES : FLAT_CLASSES));
+
+  // Detaching a strip resets its scroll position, so remember it first.
+  for (const doc of docs) {
+    if (doc.row && doc.row.isConnected) doc.scrollLeft = doc.row.querySelector(".doc-strip").scrollLeft;
+  }
+
+  const nodes = [];
+  let flatNumber = 0;
+
+  docs.forEach((doc, di) => {
+    const cards = doc.pages.map((page, pi) => {
+      const el = page.el || createCard(page);
+      el.classList.toggle("w-40", rows);
+      el.classList.toggle("flex-none", rows);
+      el.classList.toggle("doc-start", !rows && di > 0 && pi === 0);
+      el.title = rows ? "" : doc.name;
+      el.querySelector(".page-number-badge").textContent = rows ? pi + 1 : ++flatNumber;
+      return el;
+    });
+
+    if (rows) {
+      const row = doc.row || createDocRow(doc);
+      row.querySelector(".doc-name").textContent = doc.name;
+      row.querySelector(".doc-name").title = doc.name;
+      row.querySelector(".doc-count").textContent = plural(doc.pages.length, "page");
+      row.querySelector(".doc-strip").replaceChildren(...cards);
+      nodes.push(row);
     } else {
-      removePages([pageObj]);
+      nodes.push(...cards);
     }
   });
 
-  pageDiv.addEventListener("dragstart", handleDragStart);
-  pageDiv.addEventListener("dragend", handleDragEnd);
+  pagesGrid.replaceChildren(...nodes, dropIndicator);
 
-  pagesGrid.appendChild(pageDiv);
+  if (rows) {
+    for (const doc of docs) doc.row.querySelector(".doc-strip").scrollLeft = doc.scrollLeft || 0;
+  }
+
+  syncSelectionUI();
 }
 
-// Removes pages from the model and the DOM, then refreshes numbering and stats.
-function removePages(pages) {
-  for (const page of pages) {
-    PDFManager.removePage(page.id);
-    getCard(page.id)?.remove();
+function syncSelectionUI() {
+  for (const doc of PDFManager.documents) {
+    let count = 0;
+
+    for (const page of doc.pages) {
+      if (page.selected) count++;
+      if (!page.el) continue;
+      const cb = page.el.querySelector(".page-checkbox");
+      cb.checked = page.selected;
+      cb.indeterminate = false;
+      page.el.classList.toggle("selected", page.selected);
+    }
+
+    if (doc.row) {
+      const cb = doc.row.querySelector(".doc-checkbox");
+      const all = doc.pages.length > 0 && count === doc.pages.length;
+      cb.checked = all;
+      cb.indeterminate = count > 0 && !all;
+    }
   }
+}
+
+// Removes pages from the model, then re-renders.
+function removePages(pages) {
+  PDFManager.removePages(pages.map(p => p.id));
   refresh();
 }
 
@@ -474,20 +634,20 @@ function removePages(pages) {
 /* Drag & drop reordering                                              */
 /* ------------------------------------------------------------------ */
 
-const dropIndicator = document.createElement("div");
-dropIndicator.className = "drop-indicator";
-pagesGrid.appendChild(dropIndicator);
-
 mainContent.addEventListener("dragover", handleDragOver);
 mainContent.addEventListener("drop", handleDrop);
 mainContent.addEventListener("dragleave", handleDragLeave);
+
+function dragging() {
+  return AppData.temp.draggedPageId !== null || AppData.temp.draggedDocId !== null;
+}
 
 function clearDropPlan() {
   AppData.temp.dragPlan = null;
   dropIndicator.classList.remove("visible");
 }
 
-function handleDragStart(e) {
+function handlePageDragStart(e) {
   const card = e.currentTarget;
   AppData.temp.draggedPageId = Number(card.dataset.pageId);
   AppData.temp.dragPointer = { x: e.clientX, y: e.clientY };
@@ -495,22 +655,25 @@ function handleDragStart(e) {
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", String(AppData.temp.draggedPageId));
 
-  AppData.temp.dragGap = parseFloat(getComputedStyle(pagesGrid).columnGap) || 16;
-  AppData.temp.dragCache = Array.from(pagesGrid.querySelectorAll(".pdf-page:not(.hidden)")).map(el => ({
-    id: Number(el.dataset.pageId),
-    x: el.offsetLeft,
-    y: el.offsetTop,
-    w: el.offsetWidth,
-    h: el.offsetHeight
-  }));
-
   requestAnimationFrame(() => card.classList.add("dragging"));
+  startAutoScroll();
+}
 
+function handleDocDragStart(e) {
+  const row = e.currentTarget.closest(".doc-row");
+  AppData.temp.draggedDocId = Number(row.dataset.docId);
+  AppData.temp.dragPointer = { x: e.clientX, y: e.clientY };
+
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", String(AppData.temp.draggedDocId));
+  e.dataTransfer.setDragImage(e.currentTarget, 16, 16);
+
+  requestAnimationFrame(() => row.classList.add("dragging"));
   startAutoScroll();
 }
 
 function handleDragOver(e) {
-  if (AppData.temp.draggedPageId === null) return;
+  if (!dragging()) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "move";
   AppData.temp.dragPointer = { x: e.clientX, y: e.clientY };
@@ -518,64 +681,81 @@ function handleDragOver(e) {
 }
 
 function handleDragLeave(e) {
-  if (AppData.temp.draggedPageId === null) return;
+  if (!dragging()) return;
   if (!mainContent.contains(e.relatedTarget)) clearDropPlan();
 }
 
 function handleDrop(e) {
-  if (AppData.temp.draggedPageId === null) return;
+  if (!dragging()) return;
   e.preventDefault();
 
-  const draggedId = AppData.temp.draggedPageId;
-  const plan = AppData.temp.dragPlan;
-  const card = getCard(draggedId);
+  const { draggedPageId: pageId, draggedDocId: docId, dragPlan: plan } = AppData.temp;
   finishDrag();
-  if (!plan || !card) return;
+  if (!plan) return;
 
-  const target = getCard(plan.targetId);
-  if (!target) return;
-
+  pushUndo();
   animateReorder(() => {
-    if (AppData.temp.fileView) {
-      moveFileGroup(draggedId, plan.targetId, plan.after);
-    } else {
-      PDFManager.reorderPages(plan.fromIndex, plan.toIndex);
-      if (plan.after) target.after(card);
-      else target.before(card);
-    }
+    if (pageId !== null) PDFManager.movePageRelative(pageId, plan.targetId, plan.after);
+    else PDFManager.moveDocumentRelative(docId, plan.targetId, plan.after);
+    render();
   });
-
-  applyView();
-}
-
-function handleDragEnd() {
-  finishDrag();
+  updateStats();
 }
 
 function finishDrag() {
   AppData.temp.draggedPageId = null;
-  AppData.temp.dragCache = [];
+  AppData.temp.draggedDocId = null;
   clearDropPlan();
   if (AppData.temp.autoScrollRaf) {
     cancelAnimationFrame(AppData.temp.autoScrollRaf);
     AppData.temp.autoScrollRaf = null;
   }
-  pagesGrid.querySelectorAll(".pdf-page.dragging").forEach(el => el.classList.remove("dragging"));
+  pagesGrid.querySelectorAll(".dragging").forEach(el => el.classList.remove("dragging"));
+}
+
+function distanceToRect(x, y, r) {
+  const dx = Math.max(r.left - x, 0, x - r.right);
+  const dy = Math.max(r.top - y, 0, y - r.bottom);
+  return Math.hypot(dx, dy);
+}
+
+function showIndicator(left, top, width, height) {
+  dropIndicator.style.left = `${left}px`;
+  dropIndicator.style.top = `${top}px`;
+  dropIndicator.style.width = `${width}px`;
+  dropIndicator.style.height = `${height}px`;
+  dropIndicator.classList.add("visible");
 }
 
 function updateDropTarget() {
+  const { x, y } = AppData.temp.dragPointer;
   const grid = pagesGrid.getBoundingClientRect();
-  const x = AppData.temp.dragPointer.x - grid.left;
-  const y = AppData.temp.dragPointer.y - grid.top;
 
+  if (AppData.temp.draggedDocId !== null) updateDocDropTarget(x, y, grid);
+  else updatePageDropTarget(x, y, grid);
+}
+
+function updatePageDropTarget(x, y, grid) {
+  const stripRects = new Map();
   let best = null;
+  let bestRect = null;
   let bestDist = Infinity;
-  for (const c of AppData.temp.dragCache) {
-    const dx = Math.max(c.x - x, 0, x - (c.x + c.w));
-    const dy = Math.max(c.y - y, 0, y - (c.y + c.h));
-    const dist = Math.hypot(dx, dy);
+
+  for (const el of pagesGrid.querySelectorAll(".pdf-page")) {
+    const r = el.getBoundingClientRect();
+
+    // Ignore cards scrolled out of view inside their row.
+    const strip = el.closest(".doc-strip");
+    if (strip) {
+      if (!stripRects.has(strip)) stripRects.set(strip, strip.getBoundingClientRect());
+      const s = stripRects.get(strip);
+      if (r.right < s.left || r.left > s.right) continue;
+    }
+
+    const dist = distanceToRect(x, y, r);
     if (dist < bestDist) {
-      best = c;
+      best = el;
+      bestRect = r;
       bestDist = dist;
     }
   }
@@ -585,24 +765,70 @@ function updateDropTarget() {
     return;
   }
 
-  const after = x > best.x + best.w / 2;
-  const pages = AppData.temp.fileView ? representativePages() : PDFManager.getAllPages();
-  const fromIndex = pages.findIndex(p => p.id === AppData.temp.draggedPageId);
-  let toIndex = pages.findIndex(p => p.id === best.id) + (after ? 1 : 0);
-  if (fromIndex < toIndex) toIndex--;
+  const draggedId = AppData.temp.draggedPageId;
+  const targetId = Number(best.dataset.pageId);
+  const after = x > bestRect.left + bestRect.width / 2;
 
-  if (fromIndex === -1 || toIndex === fromIndex) {
+  // Skip drops that would leave the page exactly where it is.
+  const page = PDFManager.getPage(draggedId);
+  const target = PDFManager.getPage(targetId);
+  if (!page || !target || page === target) {
+    clearDropPlan();
+    return;
+  }
+  if (page.docId === target.docId) {
+    const pages = PDFManager.getDoc(page.docId).pages;
+    const from = pages.indexOf(page);
+    const at = pages.indexOf(target) + (after ? 1 : 0);
+    if (at === from || at === from + 1) {
+      clearDropPlan();
+      return;
+    }
+  }
+
+  AppData.temp.dragPlan = { targetId, after };
+
+  const left = (after ? bestRect.right + DRAG_GAP / 2 : bestRect.left - DRAG_GAP / 2) - 2 - grid.left;
+  showIndicator(left, bestRect.top - grid.top, 4, bestRect.height);
+}
+
+function updateDocDropTarget(x, y, grid) {
+  let best = null;
+  let bestRect = null;
+  let bestDist = Infinity;
+
+  for (const el of pagesGrid.querySelectorAll(".doc-row")) {
+    const r = el.getBoundingClientRect();
+    const dist = Math.max(r.top - y, 0, y - r.bottom);
+    if (dist < bestDist) {
+      best = el;
+      bestRect = r;
+      bestDist = dist;
+    }
+  }
+
+  if (!best) {
     clearDropPlan();
     return;
   }
 
-  AppData.temp.dragPlan = { targetId: best.id, after, fromIndex, toIndex };
+  const draggedId = AppData.temp.draggedDocId;
+  const targetId = Number(best.dataset.docId);
+  const after = y > bestRect.top + bestRect.height / 2;
 
-  const left = (after ? best.x + best.w + AppData.temp.dragGap / 2 : best.x - AppData.temp.dragGap / 2) - 2;
-  dropIndicator.style.left = `${left}px`;
-  dropIndicator.style.top = `${best.y}px`;
-  dropIndicator.style.height = `${best.h}px`;
-  dropIndicator.classList.add("visible");
+  const docs = PDFManager.documents;
+  const from = docs.findIndex(d => d.id === draggedId);
+  const at = docs.findIndex(d => d.id === targetId) + (after ? 1 : 0);
+  if (from === -1 || targetId === draggedId || at === from || at === from + 1) {
+    clearDropPlan();
+    return;
+  }
+
+  AppData.temp.dragPlan = { targetId, after };
+
+  const gap = 24; // gap-6 between rows
+  const top = (after ? bestRect.bottom + gap / 2 : bestRect.top - gap / 2) - 2 - grid.top;
+  showIndicator(bestRect.left - grid.left, top, bestRect.width, 4);
 }
 
 function startAutoScroll() {
@@ -610,23 +836,42 @@ function startAutoScroll() {
   const maxSpeed = 18;
 
   const step = () => {
-    if (AppData.temp.draggedPageId === null) {
+    if (!dragging()) {
       AppData.temp.autoScrollRaf = null;
       return;
     }
 
+    const { x, y } = AppData.temp.dragPointer;
+    let moved = false;
+
     const rect = mainContent.getBoundingClientRect();
     let speed = 0;
-    if (AppData.temp.dragPointer.y < rect.top + zone) {
-      speed = -maxSpeed * Math.min(1, (rect.top + zone - AppData.temp.dragPointer.y) / zone);
-    } else if (AppData.temp.dragPointer.y > rect.bottom - zone) {
-      speed = maxSpeed * Math.min(1, (AppData.temp.dragPointer.y - (rect.bottom - zone)) / zone);
+    if (y < rect.top + zone) {
+      speed = -maxSpeed * Math.min(1, (rect.top + zone - y) / zone);
+    } else if (y > rect.bottom - zone) {
+      speed = maxSpeed * Math.min(1, (y - (rect.bottom - zone)) / zone);
     }
-
     if (speed) {
       mainContent.scrollTop += speed;
-      updateDropTarget();
+      moved = true;
     }
+
+    // Pages can also be dragged along a row, so scroll the row under the pointer sideways.
+    if (AppData.temp.draggedPageId !== null) {
+      const strip = document.elementFromPoint(x, y)?.closest?.(".doc-strip");
+      if (strip) {
+        const r = strip.getBoundingClientRect();
+        let hSpeed = 0;
+        if (x < r.left + zone) hSpeed = -maxSpeed * Math.min(1, (r.left + zone - x) / zone);
+        else if (x > r.right - zone) hSpeed = maxSpeed * Math.min(1, (x - (r.right - zone)) / zone);
+        if (hSpeed) {
+          strip.scrollLeft += hSpeed;
+          moved = true;
+        }
+      }
+    }
+
+    if (moved) updateDropTarget();
 
     AppData.temp.autoScrollRaf = requestAnimationFrame(step);
   };
@@ -643,12 +888,15 @@ function animateReorder(mutate) {
 
   if (reduceMotion) return;
 
+  const vh = window.innerHeight;
   for (const c of cards) {
+    if (!c.isConnected) continue;
     const a = first.get(c);
     const b = c.getBoundingClientRect();
     const dx = a.left - b.left;
     const dy = a.top - b.top;
     if (!dx && !dy) continue;
+    if ((a.bottom < 0 && b.bottom < 0) || (a.top > vh && b.top > vh)) continue;
 
     c.animate(
       [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }],
@@ -658,109 +906,11 @@ function animateReorder(mutate) {
 }
 
 /* ------------------------------------------------------------------ */
-/* View (pages / files) and selection                                  */
+/* Selection, delete and pair up                                       */
 /* ------------------------------------------------------------------ */
-
-function representativePages() {
-  const seen = new Set();
-  return PDFManager.getAllPages().filter(p => {
-    if (seen.has(p.fileIndex)) return false;
-    seen.add(p.fileIndex);
-    return true;
-  });
-}
-
-function applyView() {
-  const pages = PDFManager.getAllPages();
-  const reps = new Set(representativePages().map(p => p.id));
-
-  pagesGrid.querySelectorAll(".pdf-page").forEach(el => {
-    const id = Number(el.dataset.pageId);
-    const page = PDFManager.getPage(id);
-    if (!page) return;
-
-    el.classList.toggle("hidden", AppData.temp.fileView && !reps.has(id));
-
-    const badge = el.querySelector(".page-number-badge");
-    if (AppData.temp.fileView) {
-      if (!el._nameEl) el._nameEl = createFileNameEl(page.fileName);
-      if (badge.firstChild !== el._nameEl) badge.replaceChildren(el._nameEl);
-    } else {
-      badge.textContent = pages.findIndex(p => p.id === id) + 1;
-    }
-  });
-
-  syncSelectionUI();
-}
-
-function syncSelectionUI() {
-  const groups = PDFManager.groupByFile();
-
-  pagesGrid.querySelectorAll(".pdf-page").forEach(el => {
-    const page = PDFManager.getPage(Number(el.dataset.pageId));
-    if (!page) return;
-
-    const cb = el.querySelector(".page-checkbox");
-    if (AppData.temp.fileView) {
-      const filePages = groups.get(page.fileIndex);
-      const count = filePages.filter(p => p.selected).length;
-      const all = count === filePages.length;
-      cb.checked = all;
-      cb.indeterminate = count > 0 && !all;
-      el.classList.toggle("selected", count > 0);
-    } else {
-      cb.checked = page.selected;
-      cb.indeterminate = false;
-      el.classList.toggle("selected", page.selected);
-    }
-  });
-}
-
-function createFileNameEl(name) {
-  const el = document.createElement("div");
-  el.className = "file-name";
-  el.title = name;
-
-  const text = document.createElement("span");
-  text.textContent = name;
-  el.appendChild(text);
-
-  return el;
-}
-
-function moveFileGroup(draggedId, targetId, after) {
-  const pages = PDFManager.pages;
-  const dragFile = PDFManager.getPage(draggedId).fileIndex;
-  const targetFile = PDFManager.getPage(targetId).fileIndex;
-
-  const moving = PDFManager.pagesOfFile(dragFile);
-  const rest = pages.filter(p => p.fileIndex !== dragFile);
-
-  let at;
-  if (after) {
-    let last = -1;
-    rest.forEach((p, i) => { if (p.fileIndex === targetFile) last = i; });
-    at = last + 1;
-  } else {
-    at = rest.findIndex(p => p.fileIndex === targetFile);
-  }
-  rest.splice(at, 0, ...moving);
-  PDFManager.pages = rest;
-
-  rest.forEach(p => {
-    const el = getCard(p.id);
-    if (el) pagesGrid.insertBefore(el, dropIndicator);
-  });
-}
 
 function handleSelectAll(e) {
   PDFManager.selectAll(e.target.checked);
-  document.querySelectorAll(".page-checkbox").forEach(cb => {
-    cb.checked = e.target.checked;
-  });
-  document.querySelectorAll(".pdf-page").forEach(page => {
-    page.classList.toggle("selected", e.target.checked);
-  });
   syncSelectionUI();
   updateStats();
 }
@@ -771,40 +921,68 @@ function handleDeleteSelected() {
 
   if (!confirm(`Delete ${plural(selected.length, "selected page")}?`)) return;
 
+  pushUndo();
   removePages(selected);
 }
 
+// Deletes the last page of every document that has a selected page.
 function handleDeleteLastPages() {
-  const lastByFile = new Map();
-  for (const page of PDFManager.getSelectedPages()) lastByFile.set(page.fileIndex, page);
-  const targets = [...lastByFile.values()];
+  const targets = selectedDocs().map(doc => doc.pages[doc.pages.length - 1]);
   if (targets.length === 0) return;
 
-  if (!confirm(`Delete the last page of ${plural(targets.length, "selected file")}?`)) return;
+  if (!confirm(`Delete the last page of ${plural(targets.length, "selected document")}?`)) return;
 
+  pushUndo();
   removePages(targets);
+}
+
+// Pairs the selected documents: the first half keeps its place and name, and each one swallows
+// the matching document of the second half. Works on documents, so it needs Row view.
+function handlePairUp() {
+  if (!isRows()) {
+    const ok = confirm("Pair up works on documents, so it needs Row View.\n\nSwitch to Row View and pair the selected documents?");
+    if (!ok) return;
+    setView("rows");
+  }
+
+  const docs = selectedDocs();
+  if (docs.length < 2 || docs.length % 2 !== 0) {
+    alert(`Pair up needs an even number of selected documents (${docs.length} selected).`);
+    return;
+  }
+
+  pushUndo();
+  animateReorder(() => {
+    PDFManager.pairUp(docs);
+    render();
+  });
+  updateStats();
 }
 
 function updateStats() {
   const pages = PDFManager.getAllPages();
   const total = pages.length;
-  const selected = PDFManager.getSelectedPages().length;
+  const selected = pages.filter(p => p.selected).length;
+  const busy = AppData.temp.busy;
 
-  if (AppData.temp.fileView) {
-    totalPagesSpan.textContent = new Set(pages.map(p => p.fileIndex)).size;
-    selectedPagesSpan.textContent = new Set(pages.filter(p => p.selected).map(p => p.fileIndex)).size;
-  } else {
-    totalPagesSpan.textContent = total;
-    selectedPagesSpan.textContent = selected;
-  }
+  totalPagesSpan.textContent = total;
+  selectedPagesSpan.textContent = selected;
   selectAllCheckbox.checked = total > 0 && selected === total;
   selectAllCheckbox.indeterminate = selected > 0 && selected < total;
   selectAllCheckbox.disabled = total === 0;
 
-  exportBtn.disabled = AppData.temp.busy || selected === 0;
-  exportConfirmBtn.disabled = AppData.temp.busy || selected === 0 || !!AppData.temp.extractError;
-  deleteSelectedBtn.disabled = AppData.temp.busy || selected === 0;
-  deleteLastPagesBtn.disabled = AppData.temp.busy || selected === 0;
+  exportBtn.disabled = busy || selected === 0;
+  exportConfirmBtn.disabled = busy || selected === 0 || !!AppData.temp.extractError;
+  deleteSelectedBtn.disabled = busy || selected === 0;
+  deleteLastPagesBtn.disabled = busy || selected === 0;
+  undoBtn.disabled = busy || AppData.temp.undoStack.length === 0;
+
+  const docCount = selectedDocs().length;
+  const canPair = !busy && docCount >= 2 && docCount % 2 === 0;
+  pairUpBtn.disabled = !canPair;
+  pairUpBtn.title = canPair
+    ? "Pair up the selected documents: the second half is merged into the first half, in order"
+    : `Pair up needs pages selected in an even number of documents (${docCount} selected)`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -887,20 +1065,12 @@ async function runExport(action, fn) {
 
 const EXPORT_COPY = {
   "merge-desc": {
-    files: "Combine all pages of the selected files into one PDF",
-    pages: "Combine selected pages into one PDF"
+    rows: "Combine the selected pages of all documents into one PDF",
+    flat: "Combine selected pages into one PDF"
   },
   "extract-only-desc": {
-    files: "Export each selected file as its own PDF",
-    pages: "Export each selected page as its own PDF"
-  },
-  "extract-pages-desc": {
-    files: "Export the same page numbers from each selected file",
-    pages: "Export only the page numbers you enter"
-  },
-  "extract-range-desc": {
-    files: "Export the same page range from each selected file",
-    pages: "Export every page from one number to another"
+    rows: "Export each selected document as its own PDF",
+    flat: "Export each selected page as its own PDF"
   }
 };
 
@@ -908,33 +1078,20 @@ function openExportModal() {
   const count = PDFManager.getSelectedPages().length;
   if (count === 0) return;
 
-  const fileView = AppData.temp.fileView;
-  const fileCount = selectedFileOrder().length;
+  const rows = isRows();
+  const docCount = selectedDocs().length;
 
-  exportCount.textContent = fileView ? plural(fileCount, "file") : plural(count, "page");
-  document.getElementById("export-modal-title").textContent = fileView ? "Export files" : "Export pages";
-  document.getElementById("export-switch-view").textContent = fileView ? "Switch to pages view" : "Switch to files view";
+  exportModalTitle.textContent = rows ? "Export: Row View" : "Export: Flat View";
+  exportSwitchView.textContent = rows ? "Switch to flat view" : "Switch to row view";
+  exportCount.textContent = rows ? plural(docCount, "document") : plural(count, "page");
 
   for (const [id, text] of Object.entries(EXPORT_COPY)) {
-    document.getElementById(id).textContent = fileView ? text.files : text.pages;
+    document.getElementById(id).textContent = rows ? text.rows : text.flat;
   }
 
-  for (const id of ["extract-first-option", "extract-last-option"]) {
-    document.getElementById(id).classList.toggle("hidden", !fileView);
-  }
-
-  if (fileView) {
-    const ok = fileCount >= 2 && fileCount % 2 === 0;
-
-    pairMergeCheckbox.disabled = !ok;
-    if (!ok) pairMergeCheckbox.checked = false;
-    setOptionDisabled(pairMergeOption, !ok);
-
-    pairMergeOption.title = ok ? "" : `Needs an even number of selected files (${fileCount} selected)`;
-  }
-
-  const checkedMode = document.querySelector('input[name="exportMode"]:checked');
-  if (checkedMode && (checkedMode.disabled || checkedMode.closest("label").classList.contains("hidden"))) {
+  // Extract only exists in Row view; in Flat view you just delete the pages you don't need.
+  extractGroup.classList.toggle("hidden", !rows);
+  if (!rows && isSplitMode(getExportMode())) {
     document.querySelector('input[name="exportMode"][value="merge"]').checked = true;
   }
 
@@ -947,10 +1104,8 @@ function openExportModal() {
 function updateExportSubOptions() {
   const mode = getExportMode();
   const isMerge = mode === "merge";
-
   const isExtract = isSplitMode(mode);
 
-  pairMergeOption.classList.toggle("hidden", !(AppData.temp.fileView && isMerge));
   extractSubOptions.classList.toggle("hidden", !isExtract);
   extractHeader.classList.toggle("bg-gray-100", isExtract);
 
@@ -988,7 +1143,7 @@ function handleExportConfirm() {
   closeExportModal();
 
   if (mode === "extract-only") {
-    if (AppData.temp.fileView) handleSeparateFiles();
+    if (isRows()) handleSeparateDocuments();
     else handleSeparatePages();
   } else if (mode === "extract-first") {
     handleExtractEdgePages("first");
@@ -996,8 +1151,6 @@ function handleExportConfirm() {
     handleExtractEdgePages("last");
   } else if (mode === "extract-pages" || mode === "extract-range") {
     handleExtractSpecific();
-  } else if (AppData.temp.fileView && pairMergeCheckbox.checked && !pairMergeCheckbox.disabled) {
-    handleMergeInPairs();
   } else {
     handleMerge();
   }
@@ -1018,6 +1171,7 @@ async function handleMerge() {
   });
 }
 
+// Flat view: one PDF per selected page, numbered by position in the whole list.
 async function handleSeparatePages() {
   const pages = PDFManager.getSelectedPages();
   if (pages.length === 0) return;
@@ -1038,58 +1192,19 @@ async function handleSeparatePages() {
   });
 }
 
-function selectedFileOrder() {
-  const selectedFiles = new Set(PDFManager.getSelectedPages().map(p => p.fileIndex));
-  return representativePages()
-    .map(p => p.fileIndex)
-    .filter(fileIndex => selectedFiles.has(fileIndex));
-}
+// Row view: one PDF per document (its selected pages).
+async function handleSeparateDocuments() {
+  const groups = PDFManager.selectedByDoc();
+  if (groups.length === 0) return;
 
-async function handleMergeInPairs() {
-  const order = selectedFileOrder();
-  if (order.length < 2 || order.length % 2 !== 0) {
-    alert(`Merge in pairs needs an even number of selected files (${order.length} selected).`);
-    return;
-  }
-
-  const half = order.length / 2;
-  const selected = PDFManager.getSelectedPages();
-  const groups = PDFManager.groupByFile(selected);
-
-  await runExport("merging files", async () => {
-    const sources = await loadSourcePdfs(selected);
+  await runExport("saving documents", async () => {
+    const sources = await loadSourcePdfs(groups.flatMap(g => g.pages));
+    const base = exportBaseName();
     const results = [];
 
-    for (let i = 0; i < half; i++) {
-      const firstIndex = order[i];
-      const secondIndex = order[i + half];
-      const firstName = PDFManager.originalFiles[firstIndex].name;
-      const secondName = PDFManager.originalFiles[secondIndex].name;
-
-      const pages = [...groups.get(firstIndex), ...groups.get(secondIndex)];
-      const bytes = await buildPdf(pages, sources, `"${firstName}" + "${secondName}"`);
-      results.push({ name: `${exportBaseName()}-${padNum(i + 1, half)}.pdf`, bytes });
-    }
-
-    await saveResults(results);
-  });
-}
-
-async function handleSeparateFiles() {
-  const selected = PDFManager.getSelectedPages();
-  if (selected.length === 0) return;
-
-  const groups = PDFManager.groupByFile(selected);
-
-  await runExport("saving files", async () => {
-    const sources = await loadSourcePdfs(selected);
-    const results = [];
-    let seq = 0;
-
-    for (const [fileIndex, pages] of groups) {
-      const fileName = PDFManager.originalFiles[fileIndex].name;
-      const bytes = await buildPdf(pages, sources, `"${fileName}"`);
-      results.push({ name: `${exportBaseName()}-${padNum(++seq, groups.size)}.pdf`, bytes });
+    for (const [i, { doc, pages }] of groups.entries()) {
+      const bytes = await buildPdf(pages, sources, `"${doc.name}"`);
+      results.push({ name: `${base}-${padNum(i + 1, groups.length)}.pdf`, bytes });
     }
 
     await saveResults(results);
@@ -1097,41 +1212,34 @@ async function handleSeparateFiles() {
 }
 
 async function handleExtractEdgePages(which) {
-  const selected = PDFManager.getSelectedPages();
-  if (selected.length === 0) return;
+  const groups = PDFManager.selectedByDoc();
+  if (groups.length === 0) return;
 
   const separate = separateCheckbox.checked;
   const suffix = `_${which}-pages`;
-
-  const edgeByFile = new Map();
-  for (const page of selected) {
-    if (which === "first") {
-      if (!edgeByFile.has(page.fileIndex)) edgeByFile.set(page.fileIndex, page);
-    } else {
-      edgeByFile.set(page.fileIndex, page);
-    }
-  }
-  const edgePages = selectedFileOrder().map(fileIndex => edgeByFile.get(fileIndex));
+  const edgePages = groups.map(g => (which === "first" ? g.pages[0] : g.pages[g.pages.length - 1]));
 
   await runExport(`extracting ${which} pages`, async () => {
     const sources = await loadSourcePdfs(edgePages);
     const base = exportBaseName();
 
     if (!separate) {
-      const bytes = await buildPdf(edgePages, sources, page => `"${page.fileName}"`);
+      const bytes = await buildPdf(edgePages, sources, (page, i) => `"${groups[i].doc.name}"`);
       await saveResults([{ name: `${base}${suffix}.pdf`, bytes }]);
       return;
     }
 
     const results = [];
     for (const [i, page] of edgePages.entries()) {
-      const bytes = await buildPdf([page], sources, `"${page.fileName}"`);
+      const bytes = await buildPdf([page], sources, `"${groups[i].doc.name}"`);
       results.push({ name: `${base}-${padNum(i + 1, edgePages.length)}${suffix}.pdf`, bytes });
     }
     await saveResults(results);
   });
 }
 
+// Reads the page numbers / range typed in the dialog. Numbers count within each document
+// (its selected pages), so "1-5" means the first five pages of every selected document.
 function getExtractRequest() {
   const mode = getExportMode();
   if (mode !== "extract-pages" && mode !== "extract-range") return { error: null };
@@ -1176,38 +1284,21 @@ function getExtractRequest() {
   const wanted = numbers ? new Set(numbers) : null;
   const has = n => (wanted ? wanted.has(n) : n >= rangeFrom && n <= rangeTo);
 
-  const all = PDFManager.getAllPages();
-  const selected = PDFManager.getSelectedPages();
+  const groups = [];
+  const tooShort = [];
 
-  if (AppData.temp.fileView) {
-    const groups = [];
-    const tooShort = [];
-
-    for (const fileIndex of selectedFileOrder()) {
-      const filePages = PDFManager.pagesOfFile(fileIndex, selected);
-      if (filePages.length < max) {
-        tooShort.push(`"${filePages[0].fileName}" has only ${plural(filePages.length, "selected page")}`);
-      }
-      groups.push(filePages.filter((p, i) => has(i + 1)));
+  for (const { doc, pages } of PDFManager.selectedByDoc()) {
+    if (pages.length < max) {
+      tooShort.push(`"${doc.name}" has only ${plural(pages.length, "selected page")}`);
     }
-
-    if (tooShort.length) {
-      const more = tooShort.length > 1 ? ` (and ${tooShort.length - 1} more)` : "";
-      return { error: `Page ${max} doesn't exist in every selected file: ${tooShort[0]}${more}.` };
-    }
-    return { error: null, groups, label };
+    groups.push(pages.filter((p, i) => has(i + 1)));
   }
 
-  if (max > all.length) {
-    const n = all.length;
-    return { error: `Page ${max} doesn't exist: only ${plural(n, "page")} ${n === 1 ? "is" : "are"} loaded.` };
+  if (tooShort.length) {
+    const more = tooShort.length > 1 ? ` (and ${tooShort.length - 1} more)` : "";
+    return { error: `Page ${max} doesn't exist in every selected document: ${tooShort[0]}${more}.` };
   }
-
-  const pages = all.filter((p, i) => p.selected && has(i + 1));
-  if (pages.length === 0) {
-    return { error: "None of the selected pages are in that selection. Select those pages first." };
-  }
-  return { error: null, groups: pages.map(p => [p]), label };
+  return { error: null, groups, label };
 }
 
 function updateExtractValidity() {
@@ -1396,11 +1487,12 @@ async function renderPreviewTextLayer(page, container, scale, token) {
   }
 }
 
+// Row view previews step through the page's document; Flat view steps through every page.
 function previewScopePages(pageId = AppData.temp.currentPreviewPageId) {
   const all = PDFManager.getAllPages();
-  if (!AppData.temp.fileView) return all;
-  const page = PDFManager.getPage(pageId);
-  return page ? PDFManager.pagesOfFile(page.fileIndex) : all;
+  if (!isRows()) return all;
+  const doc = PDFManager.docOfPage(PDFManager.getPage(pageId));
+  return doc ? doc.pages : all;
 }
 
 // The pages the preview can step through, and where the current page sits among them.
@@ -1451,6 +1543,7 @@ function deletePreviewPage() {
 
   const neighbor = scope[index + 1] || scope[index - 1] || null;
 
+  pushUndo();
   removePages([page]);
 
   if (neighbor) {
@@ -1464,8 +1557,15 @@ async function rotatePreviewPage() {
   const page = currentPreviewPage();
   if (!page) return;
 
+  pushUndo();
   PDFManager.rotatePage(page.id, 90);
 
   await renderPreviewPage(page);
-  await refreshThumbnail(page.id);
+  refreshThumbnail(page.id);
 }
+
+/* ------------------------------------------------------------------ */
+/* Init (after everything above is defined)                            */
+/* ------------------------------------------------------------------ */
+
+setView(AppData.temp.viewMode);
