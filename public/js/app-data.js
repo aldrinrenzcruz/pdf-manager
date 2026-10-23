@@ -4,16 +4,11 @@ const AppData = {
   data: {},
 
   temp: {
-    // "grid": every page in one continuous grid. "rows": one row per document.
     viewMode: "grid",
-
-    // Source of truth: an ordered array of { id, name, pages: [] }.
-    // Each page keeps its own source (fileIndex + originalPageNum), so a document can hold
-    // pages that come from different source PDFs (e.g. after Pair up).
     documents: [],
     nextId: 1,
     nextDocId: 1,
-    pageStore: new Map(), // every page ever created, by id (deleted pages stay so undo can bring them back)
+    pageStore: new Map(),
     originalFiles: [],
 
     undoStack: [],
@@ -22,11 +17,9 @@ const AppData = {
     loadQueue: Promise.resolve(),
 
     separateAuto: false,
-    mergeForcedOff: false, // Split was auto-selected because there was nothing to merge
+    mergeForcedOff: false,
     extractError: null,
 
-    // Annotation tools in the preview: tool is null | "draw" | "text" | "erase"; annotSize indexes
-    // the pen widths / text sizes in annotations.js; textEdit is the open text editor, if any.
     annotTool: null,
     annotColor: "#111827",
     annotSize: 1,
