@@ -6,7 +6,9 @@
   array references). Coordinates are normalized (0..1) in the page's UNROTATED space, with the
   origin at the top-left, so they survive zoom, rotation and export:
 
-    { type: "draw", color, width, points: [[x, y], ...] }        width = fraction of page width
+    { type: "draw", color, width, opacity?, points: [[x, y], ...] }
+                                                                 width = fraction of page width;
+                                                                 opacity < 1 makes it a highlighter
     { type: "text", color, size, x, y, angle, text }             size  = fraction of page width
                                                                  (x, y) = top-left of the text box
                                                                  angle  = clockwise degrees
@@ -16,6 +18,9 @@
 */
 
 const ANNOT_PEN_WIDTHS = [0.002, 0.004, 0.008];
+const ANNOT_HIGHLIGHT_WIDTHS = [0.012, 0.022, 0.038];
+const ANNOT_HIGHLIGHT_OPACITY = 0.4;
+const ANNOT_HIGHLIGHT_COLOR = "#facc15";
 const ANNOT_TEXT_SIZES = [0.018, 0.028, 0.045];
 const ANNOT_BASELINE = 0.95; // first baseline, in font sizes below the top of the text box
 const ANNOT_LINE_HEIGHT = 1.2;
@@ -92,12 +97,14 @@ function drawAnnotationsOnCanvas(canvas, annotations, rotation) {
     if (a.type === "draw") {
       ctx.strokeStyle = a.color;
       ctx.lineWidth = Math.max(1, a.width * f.w0);
+      ctx.globalAlpha = a.opacity ?? 1;
       ctx.beginPath();
       a.points.forEach(([x, y], i) => {
         if (i === 0) ctx.moveTo(x * f.w0, y * f.h0);
         else ctx.lineTo(x * f.w0, y * f.h0);
       });
       ctx.stroke();
+      ctx.globalAlpha = 1;
     } else if (a.type === "text") {
       ctx.fillStyle = a.color;
       for (const l of textLines(a, f.w0, f.h0)) {
@@ -157,9 +164,22 @@ async function drawAnnotationsOnPdfPage(pdf, outPage, annotations) {
 
     if (a.type === "draw") {
       const thickness = Math.max(0.3, a.width * w0);
-      const pts = a.points.map(([x, y]) => ({ x: left + x * w0, y: top - y * h0 }));
-      for (let i = 1; i < pts.length; i++) {
-        outPage.drawLine({ start: pts[i - 1], end: pts[i], thickness, color, lineCap: PDFLib.LineCapStyle.Round });
+      if (a.opacity !== undefined && a.opacity < 1) {
+        // Highlighter: one single stroke, so see-through segments don't darken where they overlap.
+        const d = a.points.map(([x, y], i) => `${i ? "L" : "M"}${(x * w0).toFixed(2)} ${(y * h0).toFixed(2)}`).join(" ");
+        outPage.drawSvgPath(d, {
+          x: left,
+          y: top,
+          borderColor: color,
+          borderWidth: thickness,
+          borderOpacity: a.opacity,
+          borderLineCap: PDFLib.LineCapStyle.Round
+        });
+      } else {
+        const pts = a.points.map(([x, y]) => ({ x: left + x * w0, y: top - y * h0 }));
+        for (let i = 1; i < pts.length; i++) {
+          outPage.drawLine({ start: pts[i - 1], end: pts[i], thickness, color, lineCap: PDFLib.LineCapStyle.Round });
+        }
       }
     } else if (a.type === "text") {
       const font = await annotPdfFont(pdf);
@@ -199,7 +219,7 @@ function annotNodes(a, index, f) {
     const d = strokePathData(a.points, f);
     const round = { fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" };
     return [
-      svgEl("path", { ...round, d, class: "ann", stroke: a.color, "stroke-width": w }),
+      svgEl("path", { ...round, d, class: "ann", stroke: a.color, "stroke-width": w, "stroke-opacity": a.opacity ?? 1 }),
       // Wide invisible twin so thin strokes are easy to hit with the eraser.
       svgEl("path", { ...round, d, class: "ann-hit", "data-ann": index, stroke: "transparent", "stroke-width": Math.max(14, w) })
     ];
@@ -272,14 +292,17 @@ function createAnnotLayer(page, dw, dh) {
   let stroke = null;
 
   layer.addEventListener("pointerdown", (e) => {
-    if (AppData.temp.annotTool !== "draw" || e.button !== 0) return;
+    const tool = AppData.temp.annotTool;
+    if ((tool !== "draw" && tool !== "highlight") || e.button !== 0) return;
     e.preventDefault();
     commitTextEdit();
     layer.setPointerCapture(e.pointerId);
 
+    const highlight = tool === "highlight";
+    const opacity = highlight ? ANNOT_HIGHLIGHT_OPACITY : 1;
     const f = annotFrame(page.rotation, dw, dh);
     const pt = eventToNorm(e);
-    const width = ANNOT_PEN_WIDTHS[AppData.temp.annotSize];
+    const width = (highlight ? ANNOT_HIGHLIGHT_WIDTHS : ANNOT_PEN_WIDTHS)[AppData.temp.annotSize];
     const start = `${(pt[0] * f.w0).toFixed(2)} ${(pt[1] * f.h0).toFixed(2)}`;
     const path = svgEl("path", {
       d: `M${start} L${start}`,
@@ -287,11 +310,12 @@ function createAnnotLayer(page, dw, dh) {
       fill: "none",
       stroke: AppData.temp.annotColor,
       "stroke-width": Math.max(1, width * f.w0),
+      "stroke-opacity": opacity,
       "stroke-linecap": "round",
       "stroke-linejoin": "round"
     });
     group.append(path);
-    stroke = { id: e.pointerId, pts: [pt], path, f, width, color: AppData.temp.annotColor };
+    stroke = { id: e.pointerId, pts: [pt], path, f, width, opacity, color: AppData.temp.annotColor };
   });
 
   layer.addEventListener("pointermove", (e) => {
@@ -314,7 +338,13 @@ function createAnnotLayer(page, dw, dh) {
     if (s.pts.length < 2) s.pts.push([...s.pts[0]]); // a click leaves a dot
     commitAnnotation(page, [
       ...page.annotations,
-      { type: "draw", color: s.color, width: s.width, points: s.pts.map(([x, y]) => [round5(x), round5(y)]) }
+      {
+        type: "draw",
+        color: s.color,
+        width: s.width,
+        ...(s.opacity < 1 ? { opacity: s.opacity } : {}),
+        points: s.pts.map(([x, y]) => [round5(x), round5(y)])
+      }
     ]);
   };
   layer.addEventListener("pointerup", finishStroke);
@@ -445,6 +475,11 @@ function cancelTextEdit() {
 
 function setAnnotTool(tool) {
   commitTextEdit();
+  // Picking the highlighter switches to yellow (change the color afterwards if you want another).
+  if (tool === "highlight" && AppData.temp.annotTool !== "highlight") {
+    AppData.temp.annotColor = ANNOT_HIGHLIGHT_COLOR;
+    syncAnnotBar();
+  }
   AppData.temp.annotTool = tool;
 
   const bar = document.getElementById("annot-bar");

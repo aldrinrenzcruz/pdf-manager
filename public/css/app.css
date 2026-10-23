@@ -482,7 +482,8 @@ input:checked ~ .radio-row-check {
   pointer-events: auto;
 }
 
-.annot-layer[data-tool="draw"] {
+.annot-layer[data-tool="draw"],
+.annot-layer[data-tool="highlight"] {
   cursor: crosshair;
 }
 
