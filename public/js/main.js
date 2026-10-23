@@ -132,11 +132,13 @@ extractPagesInput.addEventListener("input", () => {
   })
 );
 
+// Sub-option modes under Extract: every "extract-*" mode except the standalone "extract-only" (the Split row).
+const isSplitMode = mode => !!mode && mode.startsWith("extract-") && mode !== "extract-only";
+
 function selectExtract() {
-  const current = getExportMode() || "";
-  if (current.startsWith("extract")) return;
-  const radio = document.querySelector('input[name="exportMode"][value="extract-only"]');
-  radio.checked = true;
+  if (isSplitMode(getExportMode())) return;
+  const value = AppData.temp.fileView ? "extract-first" : "extract-pages";
+  document.querySelector(`input[name="exportMode"][value="${value}"]`).checked = true;
   updateExportSubOptions();
 }
 extractHeader.addEventListener("click", selectExtract);
@@ -934,7 +936,7 @@ function updateExportSubOptions() {
   const mode = getExportMode();
   const isMerge = mode === "merge";
 
-  const isExtract = !!mode && mode.startsWith("extract");
+  const isExtract = isSplitMode(mode);
 
   pairMergeOption.classList.toggle("hidden", !(AppData.temp.fileView && isMerge));
   extractSubOptions.classList.toggle("hidden", !isExtract);

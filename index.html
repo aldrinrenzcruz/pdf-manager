@@ -153,6 +153,18 @@
           </span>
         </label>
 
+        <label class="radio-row">
+          <input type="radio" name="exportMode" value="extract-only" class="sr-only">
+          <div class="radio-row-body">
+            <i class="bi bi-scissors text-2xl"></i>
+            <div>
+              <div class="radio-row-title">Split</div>
+              <div id="extract-only-desc" class="radio-row-desc">Export each selected page as its own PDF</div>
+            </div>
+          </div>
+          <i class="bi bi-check-lg radio-row-check"></i>
+        </label>
+
         <div id="extract-header" role="button" tabindex="0" class="radio-row-body cursor-pointer">
           <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
           <div>
@@ -162,17 +174,6 @@
         </div>
 
         <div id="extract-sub-options" class="hidden space-y-2">
-
-          <label class="radio-row radio-row-sub">
-            <input type="radio" name="exportMode" value="extract-only" class="sr-only">
-            <div class="radio-row-body">
-              <div>
-                <div class="radio-row-title">Extract only</div>
-                <div id="extract-only-desc" class="radio-row-desc">Export each selected page as its own PDF</div>
-              </div>
-            </div>
-            <i class="bi bi-check-lg radio-row-check"></i>
-          </label>
 
           <label id="extract-first-option" class="hidden radio-row radio-row-sub">
             <input type="radio" name="exportMode" value="extract-first" class="sr-only">
