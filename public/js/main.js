@@ -524,6 +524,7 @@ function createDocRow(doc) {
   header.className = "doc-header flex items-center gap-3 mb-2 cursor-grab";
   header.draggable = true;
   header.innerHTML = `
+    <i class="bi bi-grip-vertical text-gray-400"></i>
     <label class="relative block w-5 h-5 cursor-pointer">
       <input type="checkbox" class="doc-checkbox sr-only">
       <span class="circle-check">
@@ -531,7 +532,7 @@ function createDocRow(doc) {
         <i class="i-dash bi bi-dash-lg"></i>
       </span>
     </label>
-    <i class="bi bi-grip-vertical text-gray-400"></i>
+
     <span class="doc-name font-display text-sm font-semibold text-gray-800 truncate"></span>
     <span class="doc-count text-xs text-gray-400 tabular-nums whitespace-nowrap"></span>
   `;
@@ -1078,7 +1079,8 @@ function openExportModal() {
   const docCount = selectedDocs().length;
 
   exportModalTitle.textContent = rows ? "Export: Row View" : "Export: Grid View";
-  exportSwitchView.textContent = rows ? "Switch to grid view" : "Switch to row view";
+  exportSwitchView.textContent = "Switch";
+  exportSwitchView.title = rows ? "Switch to Grid View" : "Switch to Row View";
   exportCount.textContent = rows ? plural(docCount, "document") : plural(count, "page");
 
   for (const [id, text] of Object.entries(EXPORT_COPY)) {
