@@ -119,7 +119,11 @@
     role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl h-[42rem] max-h-full flex flex-col p-8">
       <div class="flex items-center justify-between mb-2 shrink-0">
-        <h3 id="export-modal-title" class="font-display text-xl font-semibold text-gray-900">Export</h3>
+        <div class="flex items-baseline gap-3 min-w-0">
+          <h3 id="export-modal-title" class="font-display text-xl font-semibold text-gray-900 whitespace-nowrap">Export</h3>
+          <button id="export-switch-view" type="button"
+            class="text-sm text-gray-500 hover:text-gray-900 hover:underline whitespace-nowrap transition-colors"></button>
+        </div>
         <button id="export-close-btn" type="button" aria-label="Close" title="Close (Esc)"
           class="text-gray-500 hover:text-gray-900 hover:bg-gray-100 w-12 h-12 -mr-3 rounded-full flex items-center justify-center text-xl transition-colors">
           <i class="bi bi-x-lg"></i>

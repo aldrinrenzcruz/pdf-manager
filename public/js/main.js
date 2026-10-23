@@ -93,14 +93,24 @@ deleteSelectedBtn.addEventListener("click", handleDeleteSelected);
 deleteLastPagesBtn.addEventListener("click", handleDeleteLastPages);
 selectAllCheckbox.addEventListener("change", handleSelectAll);
 
+function setView(fileView) {
+  AppData.temp.fileView = fileView;
+  viewToggle.querySelectorAll(".view-opt").forEach(b => {
+    b.setAttribute("aria-pressed", String((b.dataset.view === "files") === fileView));
+  });
+  refresh();
+}
+
 viewToggle.addEventListener("click", (e) => {
   const btn = e.target.closest(".view-opt");
   if (!btn) return;
-  AppData.temp.fileView = btn.dataset.view === "files";
-  viewToggle.querySelectorAll(".view-opt").forEach(b => {
-    b.setAttribute("aria-pressed", String(b === btn));
-  });
-  refresh();
+  setView(btn.dataset.view === "files");
+});
+
+// Lets the export dialog flip between Pages and Files without closing it.
+document.getElementById("export-switch-view").addEventListener("click", () => {
+  setView(!AppData.temp.fileView);
+  openExportModal();
 });
 
 exportBtn.addEventListener("click", openExportModal);
@@ -902,6 +912,8 @@ function openExportModal() {
   const fileCount = selectedFileOrder().length;
 
   exportCount.textContent = fileView ? plural(fileCount, "file") : plural(count, "page");
+  document.getElementById("export-modal-title").textContent = fileView ? "Export files" : "Export pages";
+  document.getElementById("export-switch-view").textContent = fileView ? "Switch to pages view" : "Switch to files view";
 
   for (const [id, text] of Object.entries(EXPORT_COPY)) {
     document.getElementById(id).textContent = fileView ? text.files : text.pages;
