@@ -5,7 +5,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Manager</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -90,7 +89,7 @@
         </button>
       </div>
 
-      <div id="toolbar-actions" class="flex items-center justify-end gap-2">
+      <div class="flex items-center justify-end gap-2">
         <div id="view-toggle" role="group" aria-label="View mode"
           class="flex items-center p-0.5 bg-gray-100 rounded-full text-sm font-medium">
           <button type="button" data-view="pages" aria-pressed="true" title="Show every page"
@@ -106,7 +105,7 @@
     </div>
 
     <div id="main-content" class="flex-1 overflow-y-auto p-6 flex flex-col">
-      <div id="upload-zone" class="drop-zone group flex-1 -m-6 flex items-center justify-center">
+      <div id="upload-zone" class="group flex-1 -m-6 flex items-center justify-center">
         <div id="upload-box"
           class="w-[min(42rem,90vw)] h-96 flex flex-col items-center justify-center rounded-2xl cursor-pointer
                  border-2 border-dashed border-blue-200 bg-blue-50/60
@@ -178,7 +177,7 @@
 
         <div id="extract-sub-options" class="hidden space-y-2">
 
-          <label id="extract-only-option" class="relative block cursor-pointer ml-10">
+          <label class="relative block cursor-pointer ml-10">
             <input type="radio" name="exportMode" value="extract-only" class="peer sr-only">
             <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
@@ -217,7 +216,7 @@
             <i class="bi bi-check-lg absolute right-6 top-1/2 -translate-y-1/2 text-xl text-gray-900 opacity-0 peer-checked:opacity-100 transition-opacity"></i>
           </label>
 
-          <label id="extract-pages-option" class="relative block cursor-pointer ml-10">
+          <label class="relative block cursor-pointer ml-10">
             <input type="radio" name="exportMode" value="extract-pages" class="peer sr-only">
             <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100
@@ -239,7 +238,7 @@
             </p>
           </div>
 
-          <label id="extract-range-option" class="relative block cursor-pointer ml-10">
+          <label class="relative block cursor-pointer ml-10">
             <input type="radio" name="exportMode" value="extract-range" class="peer sr-only">
             <div class="flex items-center gap-4 pl-6 pr-14 py-3 rounded-full text-gray-700
                     hover:bg-gray-100 peer-checked:bg-gray-100

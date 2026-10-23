@@ -1,8 +1,6 @@
 * {
   -moz-user-select: none;
   -webkit-user-select: none;
-  -ms-user-select: none;
-  -o-user-select: none;
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -284,11 +282,6 @@ textarea {
   direction: ltr;
   unicode-bidi: isolate;
   display: inline-block;
-}
-
-.file-name.dragging {
-  cursor: grabbing;
-  text-overflow: clip;
 }
 
 .view-opt {

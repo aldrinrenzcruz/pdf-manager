@@ -428,8 +428,7 @@ async function addPageToGrid(pageObj) {
   pageDiv.addEventListener("dragstart", handleDragStart);
   pageDiv.addEventListener("dragend", handleDragEnd);
 
-  const gridContainer = pagesGrid.querySelector('[class*="grid-cols"]') || pagesGrid;
-  gridContainer.appendChild(pageDiv);
+  pagesGrid.appendChild(pageDiv);
 }
 
 const dropIndicator = document.createElement("div");
@@ -638,7 +637,7 @@ function applyView() {
 
     const badge = el.querySelector(".page-number-badge");
     if (AppData.data.fileView) {
-      if (!el._nameEl) el._nameEl = createFileNameEl(el, page.fileName);
+      if (!el._nameEl) el._nameEl = createFileNameEl(page.fileName);
       if (badge.firstChild !== el._nameEl) badge.replaceChildren(el._nameEl);
     } else {
       badge.textContent = pages.findIndex(p => p.id === id) + 1;
@@ -671,7 +670,7 @@ function syncSelectionUI() {
   });
 }
 
-function createFileNameEl(card, name) {
+function createFileNameEl(name) {
   const el = document.createElement("div");
   el.className = "file-name";
   el.title = name;
