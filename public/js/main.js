@@ -111,9 +111,11 @@ function undo() {
 
   PDFManager.restore(snap);
 
-  // Pages whose rotation was restored need a fresh thumbnail.
+  // Pages whose rotation or annotations were restored need a fresh thumbnail.
   for (const page of AppData.temp.pageStore.values()) {
-    if (page.thumbRotation !== undefined && page.thumbRotation !== page.rotation) queueThumb(page);
+    if (page.thumbRotation !== undefined && (page.thumbRotation !== page.rotation || page.thumbAnnotations !== page.annotations)) {
+      queueThumb(page);
+    }
   }
 
   refresh();
@@ -214,14 +216,16 @@ document.addEventListener("keydown", (e) => {
   dropOverlay.classList.add("hidden");
 });
 
-// Ctrl/Cmd+Z undoes the last structural change (not while typing or in a dialog).
+// Ctrl/Cmd+Z undoes the last change (not while typing or in the export dialog). In the preview
+// it also repaints the page, so annotations can be undone without leaving it.
 document.addEventListener("keydown", (e) => {
   if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== "z") return;
   if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
-  if (!exportModal.classList.contains("hidden") || !previewModal.classList.contains("hidden")) return;
+  if (!exportModal.classList.contains("hidden")) return;
   if (AppData.temp.busy) return;
   e.preventDefault();
-  undo();
+  if (previewModal.classList.contains("hidden")) undo();
+  else previewUndo();
 });
 
 closeModal.addEventListener("click", closePreviewModal);
@@ -250,6 +254,7 @@ window.addEventListener("resize", () => {
 
 document.addEventListener("keydown", (e) => {
   if (previewModal.classList.contains("hidden")) return;
+  if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return; // typing a text annotation
 
   if (e.key === "Escape") {
     closePreviewModal();
@@ -416,7 +421,7 @@ async function loadPDF(file, fileIndex) {
 /* Thumbnails                                                          */
 /* ------------------------------------------------------------------ */
 
-async function renderPage(pdfPage, rotation) {
+async function renderPage(pdfPage, rotation, annotations) {
   const viewport = pdfPage.getViewport({ scale: 0.5, rotation });
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -433,6 +438,7 @@ async function renderPage(pdfPage, rotation) {
     console.error("Error rendering page:", error);
   }
 
+  drawAnnotationsOnCanvas(canvas, annotations, rotation);
   return canvas;
 }
 
@@ -441,11 +447,13 @@ let thumbChain = Promise.resolve();
 
 function queueThumb(page) {
   thumbChain = thumbChain.then(async () => {
-    if (!page.el || page.thumbRotation === page.rotation) return;
+    if (!page.el || (page.thumbRotation === page.rotation && page.thumbAnnotations === page.annotations)) return;
 
     const rotation = page.rotation;
-    const canvas = await renderPage(page.pdfPage, rotation);
+    const annotations = page.annotations;
+    const canvas = await renderPage(page.pdfPage, rotation, annotations);
     page.thumbRotation = rotation;
+    page.thumbAnnotations = annotations;
     page.el.querySelector(".thumb-wrapper").replaceChildren(canvas);
   }).catch(error => console.error("Thumbnail failed:", error));
 }
@@ -1054,11 +1062,13 @@ async function loadSourcePdfs(pages) {
 async function copyPageInto(targetPdf, sourcePdfs, page) {
   const [copiedPage] = await targetPdf.copyPages(sourcePdfs.get(page.fileIndex), [page.originalPageNum - 1]);
 
-  if (page.rotation !== 0) {
+  // Annotated pages always get an explicit rotation so they match the preview they were drawn on.
+  if (page.rotation !== 0 || page.annotations.length > 0) {
     copiedPage.setRotation(PDFLib.degrees(page.rotation));
   }
 
   targetPdf.addPage(copiedPage);
+  await drawAnnotationsOnPdfPage(targetPdf, copiedPage, page.annotations);
 }
 
 // Builds one PDF from `pages` and returns its bytes. `context` names what failed in the
@@ -1429,6 +1439,8 @@ async function openPreviewModal(pageId) {
   const page = PDFManager.getPage(pageId);
   if (!page) return;
 
+  commitTextEdit();
+
   AppData.temp.currentPreviewPageId = pageId;
 
   const scope = previewScopePages(pageId);
@@ -1442,6 +1454,8 @@ async function openPreviewModal(pageId) {
 }
 
 function closePreviewModal() {
+  cancelTextEdit();
+  setAnnotTool(null);
   AppData.temp.previewRenderToken++;
   previewModal.classList.add("hidden");
   AppData.temp.currentPreviewPageId = null;
@@ -1508,7 +1522,9 @@ async function renderPreviewPage(page, { resetView = false } = {}) {
   textLayer.className = "textLayer";
   textLayer.style.setProperty("--scale-factor", cssScale);
 
-  wrapper.append(canvas, textLayer);
+  const annotLayer = createAnnotLayer(page, base.width * cssScale, base.height * cssScale);
+
+  wrapper.append(canvas, textLayer, annotLayer);
   modalCanvas.replaceChildren(wrapper);
 
   if (resetView) {

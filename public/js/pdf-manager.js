@@ -19,6 +19,7 @@ const PDFManager = {
       pdfPage: pageData.pdfPage,
       originalPageNum: pageData.originalPageNum,
       rotation: pageData.rotation || 0,
+      annotations: pageData.annotations || [], // drawings and text, see annotations.js
       selected: true,
       fileName: pageData.fileName,
       fileIndex: pageData.fileIndex
@@ -85,6 +86,12 @@ const PDFManager = {
     if (page) page.rotation = (page.rotation + degrees) % 360;
   },
 
+  // Annotation lists are replaced, never mutated, so undo snapshots can keep the old array.
+  setAnnotations(id, list) {
+    const page = this.getPage(id);
+    if (page) page.annotations = list;
+  },
+
   // Removes pages from their documents. Documents left empty are removed too.
   removePages(ids) {
     const gone = new Set(ids);
@@ -141,12 +148,17 @@ const PDFManager = {
 
   snapshot() {
     const rotations = new Map();
-    for (const page of AppData.temp.pageStore.values()) rotations.set(page.id, page.rotation);
+    const annotations = new Map();
+    for (const page of AppData.temp.pageStore.values()) {
+      rotations.set(page.id, page.rotation);
+      annotations.set(page.id, page.annotations);
+    }
 
     return {
       nextDocId: AppData.temp.nextDocId,
       docs: this.documents.map(doc => ({ doc, name: doc.name, pageIds: doc.pages.map(p => p.id) })),
-      rotations
+      rotations,
+      annotations
     };
   },
 
@@ -166,6 +178,7 @@ const PDFManager = {
     this.documents = [...docs, ...added];
 
     for (const [id, rotation] of snap.rotations) store.get(id).rotation = rotation;
+    for (const [id, list] of snap.annotations) store.get(id).annotations = list;
   }
 };
 

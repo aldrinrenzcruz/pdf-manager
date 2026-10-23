@@ -24,6 +24,13 @@ const AppData = {
     separateAuto: false,
     extractError: null,
 
+    // Annotation tools in the preview: tool is null | "draw" | "text" | "erase"; annotSize indexes
+    // the pen widths / text sizes in annotations.js; textEdit is the open text editor, if any.
+    annotTool: null,
+    annotColor: "#111827",
+    annotSize: 1,
+    textEdit: null,
+
     currentPreviewPageId: null,
     previewRenderToken: 0,
     previewZoom: 1,

@@ -154,7 +154,7 @@
           <i class="bi bi-check-lg radio-row-check"></i>
         </label>
 
-        <label class="radio-row">
+                <label class="radio-row">
           <input type="radio" name="exportMode" value="extract-only" class="sr-only">
           <div class="radio-row-body">
             <i class="bi bi-scissors text-2xl"></i>
@@ -167,83 +167,83 @@
         </label>
 
         <div id="extract-group" class="space-y-2">
-          <div id="extract-header" role="button" tabindex="0" class="radio-row-body cursor-pointer">
-            <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
-            <div>
-              <div class="radio-row-title">Extract</div>
-              <div class="radio-row-desc">Export pages of each document without merging them</div>
+        <div id="extract-header" role="button" tabindex="0" class="radio-row-body cursor-pointer">
+          <i class="bi bi-file-earmark-arrow-down text-2xl"></i>
+          <div>
+            <div class="radio-row-title">Extract</div>
+            <div class="radio-row-desc">Export pages of each document without merging them</div>
+          </div>
+        </div>
+
+        <div id="extract-sub-options" class="hidden space-y-2">
+
+          <label id="extract-first-option" class="radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-first" class="sr-only">
+            <div class="radio-row-body">
+              <div>
+                <div class="radio-row-title">Extract first pages</div>
+                <div class="radio-row-desc">Export the first page of each selected document</div>
+              </div>
             </div>
+            <i class="bi bi-check-lg radio-row-check"></i>
+          </label>
+
+          <label id="extract-last-option" class="radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-last" class="sr-only">
+            <div class="radio-row-body">
+              <div>
+                <div class="radio-row-title">Extract last pages</div>
+                <div class="radio-row-desc">Export the last page of each selected document</div>
+              </div>
+            </div>
+            <i class="bi bi-check-lg radio-row-check"></i>
+          </label>
+
+          <label class="radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-pages" class="sr-only">
+            <div class="radio-row-body">
+              <div>
+                <div class="radio-row-title">Extract specific pages</div>
+                <div id="extract-pages-desc" class="radio-row-desc">Export the same page numbers from each selected document</div>
+              </div>
+            </div>
+            <i class="bi bi-check-lg radio-row-check"></i>
+          </label>
+          <div id="extract-pages-fields" class="hidden ml-16 mr-4">
+            <input type="text" id="extract-pages-input" inputmode="numeric" autocomplete="off" spellcheck="false"
+              placeholder="e.g. 3 or 2, 5, 9" aria-label="Page numbers"
+              class="w-full h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
+            <p id="extract-pages-warning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
+              <i class="bi bi-exclamation-triangle mt-0.5"></i>
+              <span class="warning-text"></span>
+            </p>
           </div>
 
-          <div id="extract-sub-options" class="hidden space-y-2">
-
-            <label id="extract-first-option" class="radio-row radio-row-sub">
-              <input type="radio" name="exportMode" value="extract-first" class="sr-only">
-              <div class="radio-row-body">
-                <div>
-                  <div class="radio-row-title">Extract first pages</div>
-                  <div class="radio-row-desc">Export the first page of each selected document</div>
-                </div>
+          <label class="radio-row radio-row-sub">
+            <input type="radio" name="exportMode" value="extract-range" class="sr-only">
+            <div class="radio-row-body">
+              <div>
+                <div class="radio-row-title">Extract page range</div>
+                <div id="extract-range-desc" class="radio-row-desc">Export the same page range from each selected document</div>
               </div>
-              <i class="bi bi-check-lg radio-row-check"></i>
-            </label>
-
-            <label id="extract-last-option" class="radio-row radio-row-sub">
-              <input type="radio" name="exportMode" value="extract-last" class="sr-only">
-              <div class="radio-row-body">
-                <div>
-                  <div class="radio-row-title">Extract last pages</div>
-                  <div class="radio-row-desc">Export the last page of each selected document</div>
-                </div>
-              </div>
-              <i class="bi bi-check-lg radio-row-check"></i>
-            </label>
-
-            <label class="radio-row radio-row-sub">
-              <input type="radio" name="exportMode" value="extract-pages" class="sr-only">
-              <div class="radio-row-body">
-                <div>
-                  <div class="radio-row-title">Extract specific pages</div>
-                  <div id="extract-pages-desc" class="radio-row-desc">Export the same page numbers from each selected document</div>
-                </div>
-              </div>
-              <i class="bi bi-check-lg radio-row-check"></i>
-            </label>
-            <div id="extract-pages-fields" class="hidden ml-16 mr-4">
-              <input type="text" id="extract-pages-input" inputmode="numeric" autocomplete="off" spellcheck="false"
-                placeholder="e.g. 3 or 2, 5, 9" aria-label="Page numbers"
-                class="w-full h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
-              <p id="extract-pages-warning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
-                <i class="bi bi-exclamation-triangle mt-0.5"></i>
-                <span class="warning-text"></span>
-              </p>
             </div>
-
-            <label class="radio-row radio-row-sub">
-              <input type="radio" name="exportMode" value="extract-range" class="sr-only">
-              <div class="radio-row-body">
-                <div>
-                  <div class="radio-row-title">Extract page range</div>
-                  <div id="extract-range-desc" class="radio-row-desc">Export the same page range from each selected document</div>
-                </div>
-              </div>
-              <i class="bi bi-check-lg radio-row-check"></i>
-            </label>
-            <div id="extract-range-fields" class="hidden ml-16 mr-4">
-              <div class="flex items-center gap-3 text-sm text-gray-500">
-                <span>From</span>
-                <input type="text" id="extract-from-input" inputmode="numeric" autocomplete="off" placeholder="1" aria-label="First page"
-                  class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
-                <span>to</span>
-                <input type="text" id="extract-to-input" inputmode="numeric" autocomplete="off" placeholder="5" aria-label="Last page"
-                  class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
-              </div>
-              <p id="extract-range-warning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
-                <i class="bi bi-exclamation-triangle mt-0.5"></i>
-                <span class="warning-text"></span>
-              </p>
+            <i class="bi bi-check-lg radio-row-check"></i>
+          </label>
+          <div id="extract-range-fields" class="hidden ml-16 mr-4">
+            <div class="flex items-center gap-3 text-sm text-gray-500">
+              <span>From</span>
+              <input type="text" id="extract-from-input" inputmode="numeric" autocomplete="off" placeholder="1" aria-label="First page"
+                class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
+              <span>to</span>
+              <input type="text" id="extract-to-input" inputmode="numeric" autocomplete="off" placeholder="5" aria-label="Last page"
+                class="w-24 h-10 px-4 text-sm text-gray-900 placeholder-gray-400 rounded-full bg-gray-100 border border-transparent focus:bg-white focus:border-gray-400 focus:outline-none">
             </div>
+            <p id="extract-range-warning" class="hidden mt-2 pl-4 flex items-start gap-2 text-sm text-red-600" role="alert">
+              <i class="bi bi-exclamation-triangle mt-0.5"></i>
+              <span class="warning-text"></span>
+            </p>
           </div>
+        </div>
         </div>
       </div>
 
@@ -338,10 +338,45 @@
     <button id="next-page" class="preview-nav preview-nav-next" title="Next (→)">
       <i class="bi bi-chevron-right"></i>
     </button>
+
+    <div id="annot-bar" class="annot-bar" role="toolbar" aria-label="Annotation tools">
+      <button type="button" class="preview-btn" data-tool="draw" aria-pressed="false" title="Draw or sign on this page">
+        <i class="bi bi-pencil"></i><span class="annot-label">Draw</span>
+      </button>
+      <button type="button" class="preview-btn" data-tool="text" aria-pressed="false" title="Click the page to add text; click existing text to edit it">
+        <i class="bi bi-fonts"></i><span class="annot-label">Text</span>
+      </button>
+      <button type="button" class="preview-btn" data-tool="erase" aria-pressed="false" title="Click a drawing or text to remove it">
+        <i class="bi bi-eraser"></i><span class="annot-label">Erase</span>
+      </button>
+
+      <span class="annot-sep"></span>
+
+      <button type="button" class="annot-color" data-color="#111827" style="background:#111827" aria-pressed="false" title="Black" aria-label="Black"></button>
+      <button type="button" class="annot-color" data-color="#1d4ed8" style="background:#1d4ed8" aria-pressed="false" title="Blue" aria-label="Blue"></button>
+      <button type="button" class="annot-color" data-color="#dc2626" style="background:#dc2626" aria-pressed="false" title="Red" aria-label="Red"></button>
+      <button type="button" class="annot-color" data-color="#16a34a" style="background:#16a34a" aria-pressed="false" title="Green" aria-label="Green"></button>
+
+      <span class="annot-sep"></span>
+
+      <button type="button" class="annot-size" data-size="0" aria-pressed="false" title="Small" aria-label="Small"><span style="width:5px;height:5px"></span></button>
+      <button type="button" class="annot-size" data-size="1" aria-pressed="false" title="Medium" aria-label="Medium"><span style="width:9px;height:9px"></span></button>
+      <button type="button" class="annot-size" data-size="2" aria-pressed="false" title="Large" aria-label="Large"><span style="width:14px;height:14px"></span></button>
+
+      <span class="annot-sep"></span>
+
+      <button id="annot-undo" type="button" class="preview-btn preview-btn-icon annot-icon-btn" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo">
+        <i class="bi bi-arrow-counterclockwise"></i>
+      </button>
+      <button id="annot-clear" type="button" class="preview-btn preview-btn-icon annot-icon-btn" title="Remove all drawings and text from this page" aria-label="Clear annotations">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </div>
   </div>
 
   <script src="./public/js/app-data.js"></script>
   <script src="./public/js/pdf-manager.js"></script>
+  <script src="./public/js/annotations.js"></script>
   <script src="./public/js/main.js"></script>
 </body>
 
