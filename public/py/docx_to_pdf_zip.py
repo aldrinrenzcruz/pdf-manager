@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import zipfile
 import tkinter as tk
 from datetime import datetime
@@ -123,16 +124,27 @@ def convert_word(src: Path, out_pdf: Path):
         raise RuntimeError("Word did not produce a PDF")
 
 
-def convert_libreoffice(src: Path, out_pdf: Path, soffice: str):
+def convert_libreoffice(src: Path, out_pdf: Path, soffice: str, cancel=None):
     outdir = out_pdf.parent
-    subprocess.run(
+    proc = subprocess.Popen(
         [soffice, "--headless", "--convert-to", "pdf",
          "--outdir", str(outdir), str(src)],
-        check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        timeout=300,
     )
+    deadline = time.monotonic() + 300
+    while proc.poll() is None:
+        if cancel is not None and cancel.is_set():
+            proc.kill()
+            proc.wait()
+            raise RuntimeError("Cancelled")
+        if time.monotonic() > deadline:
+            proc.kill()
+            proc.wait()
+            raise subprocess.TimeoutExpired(proc.args, 300)
+        time.sleep(0.1)
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, proc.args)
     produced = outdir / (src.stem + ".pdf")
     if not produced.exists():
         raise RuntimeError("LibreOffice did not produce a PDF")
@@ -471,6 +483,7 @@ class App:
         self._drag_job = None
         self._active = False
         self._creep_job = None
+        self.cancel_event = threading.Event()
 
         root.title("PDF Manager - DOCX to PDF Converter")
         root.geometry("760x660")
@@ -549,11 +562,9 @@ class App:
         outer.pack(fill="x")
         bar = tk.Frame(outer, bg=C["white"])
         bar.pack(fill="x", padx=16, pady=4)
-        self.rm_btn = Button(bar, "Remove checked", self.remove_selected, icon="trash",
+        self.rm_btn = Button(bar, "Delete", self.remove_selected, icon="trash",
                              font=self.f_text)
         self.rm_btn.pack(side="left")
-        self.clear_btn = Button(bar, "Clear", self.clear, icon="x", font=self.f_text)
-        self.clear_btn.pack(side="left", padx=(8, 0))
 
         # "Select all   N of M selected" pill
         sel = self.sel_frame = tk.Frame(bar, bg=C["white"], cursor="hand2")
@@ -612,6 +623,8 @@ class App:
         self.go_btn = Button(act_row, "Convert", self.start, kind="primary", icon="convert",
                              height=44, padx=26, radius=22, font=self.f_btn)
         self.go_btn.pack(side="right")
+        self.cancel_btn = Button(act_row, "Cancel", self.cancel, kind="primary", icon="x",
+                                 height=44, padx=26, radius=22, font=self.f_btn)
         self.status = tk.Label(act_row, text="", width=1, anchor="w", font=self.f_text,
                                fg=C["g500"], bg=C["white"])
         self.status.pack(side="left", fill="x", expand=True)
@@ -650,13 +663,20 @@ class App:
         self.sb.set(lo, hi)
 
     # ---- dialogs (rounded-modal look from the web app, as a Toplevel) ---
-    def dialog(self, title, message):
+    def dialog(self, title, message, confirm=None):
+        """Modal message. With `confirm="Label"` it shows Cancel + a black Label button
+        and returns True only if the latter was chosen."""
+        result = [False]
         top = tk.Toplevel(self.root)
         top.withdraw()
         top.title("PDF Manager")
         top.configure(bg=C["white"])
         top.resizable(False, False)
         top.transient(self.root)
+
+        def close(ok=False):
+            result[0] = ok
+            top.destroy()
 
         body = tk.Frame(top, bg=C["white"])
         body.pack(fill="both", expand=True, padx=32, pady=(28, 24))
@@ -666,10 +686,14 @@ class App:
                  justify="left", anchor="w", wraplength=440).pack(anchor="w", pady=(8, 24))
         row = tk.Frame(body, bg=C["white"])
         row.pack(fill="x")
-        Button(row, "OK", top.destroy, kind="primary", height=44, padx=32, radius=22,
-               font=self.f_btn, bg=C["white"]).pack(side="right")
-        top.bind("<Return>", lambda e: top.destroy())
-        top.bind("<Escape>", lambda e: top.destroy())
+        Button(row, confirm or "OK", lambda: close(True), kind="primary", height=44,
+               padx=32, radius=22, font=self.f_btn, bg=C["white"]).pack(side="right")
+        if confirm:
+            Button(row, "Cancel", close, height=44, padx=24, radius=22, font=self.f_btn,
+                   bg=C["white"]).pack(side="right", padx=(0, 8))
+        top.bind("<Return>", lambda e: close(bool(confirm)))
+        top.bind("<Escape>", lambda e: close(False))
+        top.protocol("WM_DELETE_WINDOW", close)
 
         top.update_idletasks()
         x = self.root.winfo_rootx() + (self.root.winfo_width() - top.winfo_reqwidth()) // 2
@@ -683,6 +707,7 @@ class App:
             pass
         top.focus_set()
         self.root.wait_window(top)
+        return result[0]
 
     # ---- helpers -------------------------------------------------------
     def _make_drop_target(self, w):
@@ -781,7 +806,6 @@ class App:
         self.add_btn.enable(idle)
         self.browse_btn.enable(idle)
         self.rm_btn.enable(idle and chosen > 0)
-        self.clear_btn.enable(idle and total > 0)
         self.go_btn.enable(idle and chosen > 0)
         self.out_entry.set_enabled(idle)
         self.select_all_cb.set_enabled(idle and total > 0)
@@ -897,6 +921,15 @@ class App:
             self.add_paths(paths)
 
     def remove_selected(self):
+        n = len(self.selected_paths())
+        if self.busy or not n:
+            return
+        if not self.dialog(
+            f"Remove {n} file{'s' if n != 1 else ''}?",
+            "They'll be taken off the list. Your original files aren't deleted.",
+            confirm="Remove",
+        ):
+            return
         keep = []
         for r in self.rows:
             if r["var"].get():
@@ -904,14 +937,9 @@ class App:
             else:
                 keep.append(r)
         self.rows = keep
-        self.update_summary()
-
-    def clear(self):
-        for r in self.rows:
-            r["widget"].destroy()
-        self.rows.clear()
-        self.progress.reset(1)
-        self.pct_label.config(text="")
+        if not self.rows:
+            self.progress.reset(1)
+            self.pct_label.config(text="")
         self.update_summary()
 
     # ---- conversion ----------------------------------------------------
@@ -928,6 +956,22 @@ class App:
     def set_busy(self, busy):
         self.busy = busy
         self._refresh_controls()
+        if busy:
+            self.go_btn.pack_forget()
+            self.cancel_btn.enable(True)
+            self.cancel_btn.pack(side="right")
+        else:
+            self.cancel_btn.pack_forget()
+            self.go_btn.pack(side="right")
+
+    def cancel(self):
+        """Stop after the current file (LibreOffice is stopped immediately; Word can't
+        be interrupted mid-file). Nothing is saved when a run is cancelled."""
+        if not self.busy or self.cancel_event.is_set():
+            return
+        self.cancel_event.set()
+        self.cancel_btn.enable(False)
+        self.status.config(text="Cancelling\u2026")
 
     def start(self):
         if not self.rows:
@@ -962,6 +1006,7 @@ class App:
         folder_name = "converted_pdfs_" + datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_path = out_dir / f"{folder_name}.zip"
 
+        self.cancel_event.clear()
         self.set_busy(True)
         self.progress.reset(len(selected) * 100)
         self.pct_label.config(text="0%")
@@ -978,6 +1023,8 @@ class App:
                 tmp = Path(tmp)
                 used_names = set()
                 for i, src in enumerate(files, 1):
+                    if self.cancel_event.is_set():
+                        break
                     self.ui(lambda n=src.name, i=i: self.begin_file(i, len(files), n))
                     try:
                         # unique PDF name inside the zip even if stems collide
@@ -996,11 +1043,15 @@ class App:
                         if use_word:
                             convert_word(local, out_pdf)
                         else:
-                            convert_libreoffice(local, out_pdf, soffice)
+                            convert_libreoffice(local, out_pdf, soffice, self.cancel_event)
                         ok.append((out_pdf, f"{stem}.pdf"))
                     except Exception as e:  # keep going on per-file failure
                         failed.append((src.name, str(e)))
                     self.ui(lambda i=i: self.file_done(i, len(files)))
+
+                if self.cancel_event.is_set():
+                    self.ui(self.cancelled)
+                    return
 
                 result_path = zip_path
                 if ok and len(files) == 1:
@@ -1049,6 +1100,13 @@ class App:
     def _show_progress(self, value):
         self.progress.set(value)
         self.pct_label.config(text=f"{int(value * 100 / self.progress.maximum)}%")
+
+    def cancelled(self):
+        self._active = False
+        self.progress.reset(1)
+        self.pct_label.config(text="")
+        self.set_busy(False)
+        self.status.config(text="Cancelled. Nothing was saved.")
 
     def finish(self, zip_path, n_ok, failed):
         self._active = False
