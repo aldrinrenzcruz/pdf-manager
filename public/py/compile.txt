@@ -1,0 +1,1 @@
+python -m PyInstaller --onefile --windowed --name "PDF Manager" --collect-all tkinterdnd2 docx_to_pdf_zip.py
