@@ -1,21 +1,3 @@
-"""
-PDF Manager - DOCX to PDF Converter
-
-  * Drag & drop .docx files onto the window, or click "Add files..."
-  * Click "Convert & save ZIP" -> PDFs are saved to the chosen folder:
-      - several files -> one ZIP containing a folder of PDFs
-      - a single file -> just the PDF (no ZIP)
-
-Setup (once):
-    pip install tkinterdnd2            # enables drag & drop (optional; buttons still work without it)
-    pip install docx2pdf               # optional: uses Microsoft Word (Windows/macOS)
-    # ...or install LibreOffice (https://www.libreoffice.org) -- any OS, no Word needed
-
-Converter used (first one found):
-  1. Microsoft Word via docx2pdf
-  2. LibreOffice (soffice)
-"""
-
 import json
 import os
 import platform
@@ -33,8 +15,6 @@ from pathlib import Path
 from tkinter import filedialog, ttk
 from tkinter import font as tkfont
 
-# A windowed (no-console) build has no stdout/stderr; libraries that print
-# progress (docx2pdf's tqdm) would crash with "'NoneType' has no attribute 'write'".
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")
 if sys.stderr is None:
@@ -46,10 +26,6 @@ try:
 except ImportError:
     HAS_DND = False
 
-
-# --------------------------------------------------------------------------
-# Saved settings (remembers the output folder between runs)
-# --------------------------------------------------------------------------
 
 CONFIG_FILE = Path.home() / ".docx_to_pdf_zip.json"
 
@@ -73,12 +49,8 @@ def save_output_dir(path: str):
     try:
         CONFIG_FILE.write_text(json.dumps({"output_dir": path}), encoding="utf-8")
     except Exception:
-        pass  # not critical
+        pass
 
-
-# --------------------------------------------------------------------------
-# Conversion backends
-# --------------------------------------------------------------------------
 
 def find_soffice():
     for name in ("soffice", "libreoffice"):
@@ -96,7 +68,6 @@ def find_soffice():
 
 
 def word_available():
-    """docx2pdf only works where Microsoft Word can be installed."""
     if platform.system() not in ("Windows", "Darwin"):
         return False
     try:
@@ -108,7 +79,7 @@ def word_available():
 
 def convert_word(src: Path, out_pdf: Path):
     if platform.system() == "Windows":
-        try:  # COM must be initialised when running in a worker thread
+        try:
             import pythoncom
             pythoncom.CoInitialize()
         except ImportError:
@@ -117,7 +88,6 @@ def convert_word(src: Path, out_pdf: Path):
     try:
         convert(str(src), str(out_pdf))
     except Exception:
-        # Only a real failure if no PDF came out (cosmetic errors are ignored)
         if not out_pdf.exists():
             raise
     if not out_pdf.exists():
@@ -152,32 +122,20 @@ def convert_libreoffice(src: Path, out_pdf: Path, soffice: str, cancel=None):
         produced.replace(out_pdf)
 
 
-
-
-# --------------------------------------------------------------------------
-# Look & feel -- mirrors the PDF Manager web app
-#   Tailwind gray palette, white bars with hairline borders, pill buttons,
-#   circular checkboxes, dashed blue drop zone, Bricolage Grotesque headings
-#   + Instrument Sans body text (falls back to the system UI font).
-# --------------------------------------------------------------------------
-
 C = {
     "white": "#ffffff",
     "g50": "#f9fafb", "g100": "#f3f4f6", "g200": "#e5e7eb", "g300": "#d1d5db",
     "g400": "#9ca3af", "g500": "#6b7280", "g600": "#4b5563", "g700": "#374151",
     "g900": "#111827",
-    "b50": "#f3f8fd",       # blue-50 @ 60% over gray-50 (idle upload box)
-    "b50h": "#eff6ff",      # blue-50 (hover)
+    "b50": "#f3f8fd",
+    "b50h": "#eff6ff",
     "b100": "#dbeafe", "b200": "#bfdbfe", "b300": "#93c5fd", "b400": "#60a5fa",
-    "dis_fg": "#afb3b9",    # gray-700 @ 40%
-    "dis_bg": "#a0a3a9",    # gray-900 @ 40%
+    "dis_fg": "#afb3b9",
+    "dis_bg": "#a0a3a9",
 }
 
 
 def load_bundled_fonts():
-    """Windows only: register any .ttf/.otf in a 'fonts' folder next to this
-    script (e.g. Bricolage Grotesque + Instrument Sans from Google Fonts) for
-    this process only. Harmless if the folder doesn't exist."""
     if platform.system() != "Windows":
         return
     try:
@@ -185,7 +143,7 @@ def load_bundled_fonts():
         base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
         fonts = list((base / "fonts").glob("*.ttf")) + list((base / "fonts").glob("*.otf"))
         for f in fonts:
-            ctypes.windll.gdi32.AddFontResourceExW(str(f), 0x10, 0)  # FR_PRIVATE
+            ctypes.windll.gdi32.AddFontResourceExW(str(f), 0x10, 0)
     except Exception:
         pass
 
@@ -209,14 +167,13 @@ def draw_icon(cv, name, cx, cy, color):
         cv.create_line(cx - 6, cy - 4, cx + 6, cy - 4, **kw)
         cv.create_line(cx - 2, cy - 4, cx - 2, cy - 6, cx + 2, cy - 6, cx + 2, cy - 4, **kw)
         cv.create_line(cx - 4.5, cy - 2, cx - 3.5, cy + 6, cx + 3.5, cy + 6, cx + 4.5, cy - 2, **kw)
-    elif name == "convert":  # arrow into a tray
+    elif name == "convert":
         cv.create_line(cx, cy - 6, cx, cy + 3, **kw)
         cv.create_line(cx - 4, cy - 1, cx, cy + 3, cx + 4, cy - 1, **kw)
         cv.create_line(cx - 6, cy + 2, cx - 6, cy + 6, cx + 6, cy + 6, cx + 6, cy + 2, **kw)
 
 
 def draw_doc(cv, cx, cy, h, color, fill="", lw=2, tags="doc"):
-    """A page with a folded corner and three text lines (like the web app's page cards)."""
     w = h * 0.72
     x1, x2, y1, y2 = cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2
     f = w * 0.38
@@ -255,8 +212,6 @@ def set_bg_tree(widget, color):
 
 
 class Button(tk.Canvas):
-    """'ghost' = the web app's .toolbar-btn, 'primary' = the black pill button."""
-
     def __init__(self, parent, text, command=None, kind="ghost", icon=None,
                  height=32, padx=12, radius=8, font=None, bg=C["white"]):
         tw = font.measure(text)
@@ -305,8 +260,6 @@ class Button(tk.Canvas):
 
 
 class CircleCheck(tk.Canvas):
-    """The web app's circular checkbox (.circle-check). `mixed` shows the dash."""
-
     def __init__(self, parent, var, command=None, size=20, bg=C["white"]):
         super().__init__(parent, width=size, height=size, bg=bg, highlightthickness=0,
                          bd=0, cursor="hand2")
@@ -350,8 +303,6 @@ class CircleCheck(tk.Canvas):
 
 
 class RoundEntry(tk.Canvas):
-    """Pill-shaped text input (gray-100 fill, gray ring on focus)."""
-
     def __init__(self, parent, textvariable, font, height=36, bg=C["white"]):
         super().__init__(parent, height=height, bg=bg, highlightthickness=0, bd=0)
         self._hgt, self._focus = height, False
@@ -413,8 +364,6 @@ class Progress(tk.Canvas):
 
 
 class DropZone(tk.Canvas):
-    """The big dashed blue 'Upload your ...' box. Also used as the drag-over overlay."""
-
     def __init__(self, parent, command, f_title, f_sub, can_drag):
         super().__init__(parent, bg=C["g50"], highlightthickness=0, bd=0, cursor="hand2")
         self.command, self.f_title, self.f_sub, self.can_drag = command, f_title, f_sub, can_drag
@@ -470,14 +419,10 @@ class DropZone(tk.Canvas):
         self.create_text(cx, top + 124, text=sub, fill=C["g500"], font=self.f_sub)
 
 
-# --------------------------------------------------------------------------
-# UI
-# --------------------------------------------------------------------------
-
 class App:
     def __init__(self, root):
         self.root = root
-        self.rows: list[dict] = []  # each: {"path", "var", "widget", ...}
+        self.rows: list[dict] = []
         self.busy = False
         self._dragging = False
         self._drag_job = None
@@ -497,17 +442,16 @@ class App:
 
         self._build_header()
         self._build_toolbar()
-        self._build_footer()   # packed before the main area so it never gets pushed off-screen
+        self._build_footer()
         self._build_main()
 
         for w in (root, self.zone, self.canvas, self.inner):
             self._make_drop_target(w)
-        root.bind_all("<MouseWheel>", self._on_wheel)   # Windows / macOS
-        root.bind_all("<Button-4>", self._on_wheel)     # Linux up
-        root.bind_all("<Button-5>", self._on_wheel)     # Linux down
+        root.bind_all("<MouseWheel>", self._on_wheel)
+        root.bind_all("<Button-4>", self._on_wheel)
+        root.bind_all("<Button-5>", self._on_wheel)
         self.update_summary()
 
-    # ---- setup ---------------------------------------------------------
     def _init_fonts(self):
         fams = set(tkfont.families())
         default = tkfont.nametofont("TkDefaultFont").actual("family")
@@ -566,7 +510,6 @@ class App:
                              font=self.f_text)
         self.rm_btn.pack(side="left")
 
-        # "Select all   N of M selected" pill
         sel = self.sel_frame = tk.Frame(bar, bg=C["white"], cursor="hand2")
         sel.pack(side="right")
         self.select_all_cb = CircleCheck(sel, self.select_all_var, command=self.toggle_all)
@@ -662,10 +605,7 @@ class App:
             self.sb.grid()
         self.sb.set(lo, hi)
 
-    # ---- dialogs (rounded-modal look from the web app, as a Toplevel) ---
     def dialog(self, title, message, confirm=None):
-        """Modal message. With `confirm="Label"` it shows Cancel + a black Label button
-        and returns True only if the latter was chosen."""
         result = [False]
         top = tk.Toplevel(self.root)
         top.withdraw()
@@ -709,7 +649,6 @@ class App:
         self.root.wait_window(top)
         return result[0]
 
-    # ---- helpers -------------------------------------------------------
     def _make_drop_target(self, w):
         if HAS_DND:
             w.drop_target_register(DND_FILES)
@@ -732,7 +671,6 @@ class App:
         return e.action
 
     def _drag_leave(self, e):
-        # debounced: moving between child widgets fires Leave then Enter
         if self._drag_job:
             self.root.after_cancel(self._drag_job)
         self._drag_job = self.root.after(80, self._end_drag)
@@ -744,7 +682,6 @@ class App:
         self._sync_view()
 
     def _sync_view(self):
-        """Show the big drop box when the list is empty or a drag is in progress."""
         self.zone.dragging = self._dragging
         if not self.rows or self._dragging:
             self.zone.place(x=0, y=0, relwidth=1, relheight=1)
@@ -775,14 +712,12 @@ class App:
         self.canvas.yview_scroll(step * 2, "units")
 
     def sort_rows(self):
-        """Keep the list sorted by file name (case-insensitive, natural order:
-        'file2' comes before 'file10')."""
         def key(r):
             name = r["path"].name.lower()
             return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", name)]
 
         self.rows.sort(key=key)
-        for r in self.rows:  # re-pack in the new order
+        for r in self.rows:
             r["widget"].pack_forget()
             r["widget"].pack(fill="x", pady=(0, 8))
 
@@ -840,7 +775,6 @@ class App:
             r["var"].set(value)
         self.update_summary()
 
-    # ---- file list management ------------------------------------------
     def _make_row(self, path, var):
         card = tk.Frame(self.inner, bg=C["white"], highlightthickness=2,
                         highlightbackground=C["g300"], cursor="hand2")
@@ -892,7 +826,7 @@ class App:
                 if c.resolve() in existing:
                     continue
                 existing.add(c.resolve())
-                var = tk.BooleanVar(value=True)  # new files start checked
+                var = tk.BooleanVar(value=True)
                 self.rows.append(self._make_row(c, var))
                 added += 1
         if added:
@@ -942,7 +876,6 @@ class App:
             self.pct_label.config(text="")
         self.update_summary()
 
-    # ---- conversion ----------------------------------------------------
     def browse_output(self):
         current = self.out_var.get().strip()
         chosen = filedialog.askdirectory(
@@ -965,8 +898,6 @@ class App:
             self.go_btn.pack(side="right")
 
     def cancel(self):
-        """Stop after the current file (LibreOffice is stopped immediately; Word can't
-        be interrupted mid-file). Nothing is saved when a run is cancelled."""
         if not self.busy or self.cancel_event.is_set():
             return
         self.cancel_event.set()
@@ -1001,8 +932,6 @@ class App:
             return
         save_output_dir(str(out_dir))
 
-        # Timestamped name so nothing is overwritten; the same name is used
-        # for the folder inside the ZIP, so unzipping gives one tidy folder.
         folder_name = "converted_pdfs_" + datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_path = out_dir / f"{folder_name}.zip"
 
@@ -1027,7 +956,6 @@ class App:
                         break
                     self.ui(lambda n=src.name, i=i: self.begin_file(i, len(files), n))
                     try:
-                        # unique PDF name inside the zip even if stems collide
                         stem, k = src.stem, 1
                         while stem.lower() in used_names:
                             k += 1
@@ -1045,7 +973,7 @@ class App:
                         else:
                             convert_libreoffice(local, out_pdf, soffice, self.cancel_event)
                         ok.append((out_pdf, f"{stem}.pdf"))
-                    except Exception as e:  # keep going on per-file failure
+                    except Exception as e:
                         failed.append((src.name, str(e)))
                     self.ui(lambda i=i: self.file_done(i, len(files)))
 
@@ -1055,12 +983,11 @@ class App:
 
                 result_path = zip_path
                 if ok and len(files) == 1:
-                    # Single file: save the PDF directly, no ZIP.
                     pdf, arcname = ok[0]
                     out_dir = zip_path.parent
                     result_path = out_dir / arcname
                     n = 1
-                    while result_path.exists():  # never overwrite an existing PDF
+                    while result_path.exists():
                         n += 1
                         result_path = out_dir / f"{Path(arcname).stem} ({n}).pdf"
                     shutil.copy2(pdf, result_path)
@@ -1073,11 +1000,6 @@ class App:
             return
         self.ui(lambda: self.finish(result_path, len(ok), failed))
 
-
-    # ---- progress ------------------------------------------------------
-    # The bar has 100 steps per file. While a file converts it creeps toward
-    # 90% of that file's share (we can't know Word's real progress), then
-    # jumps to 100% when the file is done.
     def begin_file(self, i, n, name):
         self.status.config(text=f"Converting {i}/{n}: {name}")
         self._base, self._frac, self._n, self._i = (i - 1) * 100, 0.0, n, i
